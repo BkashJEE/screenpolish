@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340" width="600" height="340" role="img" aria-label="Offline captions: Transcribed on your machine with whisper.cpp and burned into the export. Nothing uploaded.">
+<title>Offline captions: Transcribed on your machine with whisper.cpp and burned into the export. Nothing uploaded.</title>
+<defs>
+<linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1d24"/><stop offset="1" stop-color="#111318"/></linearGradient>
+<radialGradient id="glow" cx="1" cy="0" r="0.9"><stop offset="0" stop-color="#f2804f" stop-opacity=".16"/><stop offset="1" stop-color="#f2804f" stop-opacity="0"/></radialGradient>
+</defs>
+<rect x="1" y="1" width="598" height="338" rx="28" fill="url(#g)" stroke="#2a2e37" stroke-width="2"/>
+<rect x="1" y="1" width="598" height="338" rx="28" fill="url(#glow)"/>
+<g font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"><g transform="translate(44 40)"><rect width="76" height="76" rx="20" fill="#2b1c14"/><g transform="translate(14 14) scale(2)" fill="none" stroke="#f2804f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" color="#f2804f"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M6 12.5h5M13 12.5h5M6 15.5h8M16 15.5h2"/></g></g><text x="44" y="170" font-size="34" font-weight="700" fill="#f1f2f5">Offline captions</text><text x="44" y="210" font-size="20" fill="#a3a9b5">Transcribed on your machine with whisper.cpp</text><text x="44" y="240" font-size="20" fill="#a3a9b5">and burned into the export. Nothing uploaded.</text><g transform="translate(44 272)"><rect width="87" height="30" rx="15" fill="#15302a"/><circle cx="17" cy="15" r="4" fill="#5fcb98"/><text x="29" y="20" font-size="15" font-weight="600" fill="#5fcb98">Linux</text></g></g>
+</svg>

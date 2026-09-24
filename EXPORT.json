@@ -1,11 +1,11 @@
 {
   "ref": "origin/omarchy",
-  "refCommit": "d495f6be9d48f3b672aacf655e3c5f3a726caf56",
-  "files": 303,
-  "dropped": 27,
+  "refCommit": "d622be69b6197f30a83ba5eae35a997928d8ad7a",
+  "files": 320,
+  "dropped": 24,
   "stubbed": 2,
-  "edited": 6,
-  "added": 5,
+  "edited": 7,
+  "added": 6,
   "log": [
     {
       "action": "drop",
@@ -91,21 +91,6 @@
       "action": "drop",
       "target": "src/main/competition-docs.test.ts",
       "why": "checks private planning documents"
-    },
-    {
-      "action": "drop",
-      "target": "docs/FEATURES.md",
-      "why": "showcase describing a pack this edition does not ship"
-    },
-    {
-      "action": "drop",
-      "target": "docs/images",
-      "why": "showcase art describing a pack this edition does not ship"
-    },
-    {
-      "action": "drop",
-      "target": "scripts/feature-cards.mjs",
-      "why": "generates showcase art for the private repository"
     },
     {
       "action": "drop",
@@ -206,6 +191,16 @@
       "action": "add",
       "target": "SECURITY.md",
       "why": "public edition file"
+    },
+    {
+      "action": "add",
+      "target": "docs",
+      "why": "public edition file"
+    },
+    {
+      "action": "edit",
+      "target": "docs/images/features",
+      "why": "cards redrawn for this edition"
     }
   ]
 }

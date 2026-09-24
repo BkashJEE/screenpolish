@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340" width="600" height="340" role="img" aria-label="Automatic zoom: Zooms toward every click and glides back out, from the clicks recorded with the take.">
+<title>Automatic zoom: Zooms toward every click and glides back out, from the clicks recorded with the take.</title>
+<defs>
+<linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a1d24"/><stop offset="1" stop-color="#111318"/></linearGradient>
+<radialGradient id="glow" cx="1" cy="0" r="0.9"><stop offset="0" stop-color="#f2804f" stop-opacity=".16"/><stop offset="1" stop-color="#f2804f" stop-opacity="0"/></radialGradient>
+</defs>
+<rect x="1" y="1" width="598" height="338" rx="28" fill="url(#g)" stroke="#2a2e37" stroke-width="2"/>
+<rect x="1" y="1" width="598" height="338" rx="28" fill="url(#glow)"/>
+<g font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"><g transform="translate(44 40)"><rect width="76" height="76" rx="20" fill="#2b1c14"/><g transform="translate(14 14) scale(2)" fill="none" stroke="#f2804f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" color="#f2804f"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M10.5 7.5v6M7.5 10.5h6"/></g></g><text x="44" y="170" font-size="34" font-weight="700" fill="#f1f2f5">Automatic zoom</text><text x="44" y="210" font-size="20" fill="#a3a9b5">Zooms toward every click and glides back</text><text x="44" y="240" font-size="20" fill="#a3a9b5">out, from the clicks recorded with the take.</text><g transform="translate(44 272)"><rect width="182" height="30" rx="15" fill="#15302a"/><circle cx="17" cy="15" r="4" fill="#5fcb98"/><text x="29" y="20" font-size="15" font-weight="600" fill="#5fcb98">Linux · Hyprland</text></g></g>
+</svg>

@@ -5,6 +5,23 @@ It records without the system cursor, then draws its own: zooms toward every
 click, smooths the pointer path, and frames the result on a background. No
 account, no upload, no telemetry — the recording never leaves your machine.
 
+<p>
+  <img src="docs/images/features/screenpolish.svg" width="49%" alt="ScreenPolish: Record. Polish. Export. Local, private and free, for Omarchy / Hyprland.">
+  <img src="docs/images/features/auto-zoom.svg" width="49%" alt="Automatic zoom: zooms toward every click and glides back out, from the clicks recorded with the take.">
+</p>
+
+<p>
+  <img src="docs/images/features/cursor-free-capture.svg" width="49%" alt="Cursor-free capture: records Hyprland natively without the system cursor, then draws a clean one on top.">
+  <img src="docs/images/features/edit.svg" width="49%" alt="Cut and transition: split at the playhead, remove what you don't need and smooth over every cut.">
+</p>
+
+<p>
+  <img src="docs/images/features/captions.svg" width="49%" alt="Offline captions: transcribed on your machine with whisper.cpp and burned into the export. Nothing uploaded.">
+  <img src="docs/images/features/export.svg" width="49%" alt="Export anywhere: MP4 or GIF up to 2160p at 60 fps, in 16:9, 9:16, 1:1 or the source shape.">
+</p>
+
+**[Every feature →](docs/FEATURES.md)**
+
 ## What it does
 
 - **Records** a screen, a window or a region through `gpu-screen-recorder`:

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>ScreenPolish recording</title>
+    <style>
+      :root {
+        --ink: #f4f4f8;
+        --dim: rgba(244, 244, 248, 0.62);
+        --red: #ff4d5e;
+        --amber: #ffb547;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font: 13px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        color: var(--ink);
+        user-select: none;
+      }
+      .wrap {
+        position: absolute;
+        left: 50%;
+        top: 14px;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+      }
+      .pill {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 9px 7px 14px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, rgba(28, 28, 34, 0.96), rgba(14, 14, 18, 0.96));
+        box-shadow:
+          0 10px 30px rgba(0, 0, 0, 0.55),
+          0 0 0 1px rgba(255, 255, 255, 0.12),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        -webkit-app-region: drag;
+        white-space: nowrap;
+        animation: enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--red);
+        box-shadow: 0 0 10px var(--red);
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      .dot.paused {
+        background: var(--amber);
+        box-shadow: none;
+        animation: none;
+      }
+      .time {
+        font-family: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        font-size: 14px;
+        min-width: 46px;
+        letter-spacing: 0.02em;
+      }
+      .btn {
+        -webkit-app-region: no-drag;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 0;
+        border-radius: 999px;
+        padding: 6px 11px;
+        font: 600 12px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+        transition: background 120ms, transform 120ms;
+      }
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.18);
+      }
+      .btn:active {
+        transform: scale(0.96);
+      }
+      .btn.stop {
+        background: var(--red);
+        color: #fff;
+      }
+      .btn.stop:hover {
+        background: #ff6b79;
+      }
+      .btn svg {
+        width: 11px;
+        height: 11px;
+        fill: currentColor;
+      }
+      .hint {
+        color: var(--dim);
+        font-size: 11px;
+        padding-right: 4px;
+      }
+      .label {
+        max-width: 340px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 11px;
+        color: #fff;
+        background: rgba(10, 10, 14, 0.8);
+        border-radius: 999px;
+        padding: 3px 10px;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+        -webkit-app-region: drag;
+      }
+      .warn {
+        display: none;
+        font-size: 11px;
+        color: #1a1200;
+        background: var(--amber);
+        border-radius: 999px;
+        padding: 3px 10px;
+        font-weight: 600;
+      }
+      body.lowdisk .warn {
+        display: block;
+      }
+      .count {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 4px;
+        -webkit-app-region: drag;
+      }
+      .count .n {
+        font-size: 72px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.03em;
+        text-shadow: 0 6px 30px rgba(0, 0, 0, 0.75);
+        animation: pop 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .count .l {
+        font-size: 12px;
+        color: var(--dim);
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      }
+      .count .btn {
+        margin-top: 8px;
+        background: rgba(0, 0, 0, 0.6);
+      }
+      body.counting .wrap {
+        display: none;
+      }
+      body.counting .count {
+        display: flex;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(-8px) scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes pop {
+        from {
+          transform: scale(1.25);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="count" id="count">
+      <div class="n" id="countN">3</div>
+      <div class="l">Recording starts. Esc cancels.</div>
+      <button type="button" class="btn" id="cancel">Cancel</button>
+    </div>
+    <div class="wrap">
+      <div class="pill" id="pill">
+        <span class="dot" id="dot"></span>
+        <span class="time" id="time">0:00</span>
+        <button type="button" class="btn" id="pause" title="Pause (Ctrl+Shift+P)">
+          <svg viewBox="0 0 12 12" id="pauseIcon"><rect x="2" y="1.5" width="3" height="9" rx="0.8" /><rect x="7" y="1.5" width="3" height="9" rx="0.8" /></svg>
+          <span id="pauseText">Pause</span>
+        </button>
+        <button type="button" class="btn stop" id="stop" title="Stop (Ctrl+Shift+S)">
+          <svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1.5" /></svg>
+          Stop
+        </button>
+        <span class="hint">Ctrl+Shift+S</span>
+      </div>
+      <div class="label" id="label"></div>
+      <div class="warn" id="warn">Low disk space</div>
+    </div>
+    <script type="module" src="./hud.ts"></script>
+  </body>
+</html>

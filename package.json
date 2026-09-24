@@ -1,0 +1,60 @@
+{
+  "name": "polish",
+  "productName": "ScreenPolish",
+  "version": "0.3.0",
+  "description": "ScreenPolish: screen recorder with automatic polish (smart zoom, cursor effects, backgrounds, MP4/GIF export).",
+  "homepage": "https://github.com/BkashJEE/screenpolish-omarchy",
+  "main": "./out/main/index.js",
+  "desktopName": "screenpolish.desktop",
+  "author": "Bikash Joshi",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pack": "electron-vite build && electron-builder --dir",
+    "fetch:whisper": "bash scripts/fetch-whisper.sh",
+    "probe:codecs": "node scripts/probe-codecs.cjs"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
+    "ffmpeg-static": "5.3.0",
+    "koffi": "3.1.6",
+    "mediabunny": "1.55.5",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "uiohook-napi": "1.5.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "40.10.2",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
+  },
+  "allowScripts": {
+    "electron": true,
+    "electron-winstaller": true,
+    "esbuild": true,
+    "ffmpeg-static": true,
+    "koffi": true,
+    "uiohook-napi": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BkashJEE/screenpolish-omarchy.git"
+  }
+}

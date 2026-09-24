@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- mediabunny spins up blob: workers for encoding, so blob: is allowed for scripts and workers. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:; img-src 'self' blob: data:; connect-src 'self' ws: http: blob:" />
+    <title>ScreenPolish capture host</title>
+    <style>
+      html, body { margin: 0; background: #000; color: #ccc; font: 12px system-ui, sans-serif; }
+      video, canvas { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0.01; }
+      #status { padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="status">idle</div>
+    <script type="module" src="./capture.ts"></script>
+  </body>
+</html>

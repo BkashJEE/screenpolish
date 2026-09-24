@@ -1,0 +1,58 @@
+appId: com.bikashjoshi.screenpolish
+productName: ScreenPolish
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+  - resources/icon.png
+  - resources/icon-256.png
+  - resources/tray.png
+  - resources/backgrounds/**
+  - resources/fonts/**
+  - resources/cursors/**
+  - resources/segmenter/**
+asarUnpack:
+  - node_modules/uiohook-napi/**
+  - node_modules/koffi/**
+linux:
+  # pacman for Arch and Omarchy; AppImage so every other distribution has
+  # something to run without packaging work.
+  target: [pacman, AppImage]
+  icon: resources/icon.png
+  category: AudioVideo
+  synopsis: Screen recorder with automatic polish
+  # Required by the pacman/deb packagers. Same identity as the repo's commits.
+  maintainer: Bikash Joshi <bkashjee@gmail.com>
+  # Without this the binary takes the package name ("polish"); the CLI is the
+  # point on Linux, so it gets the product's name.
+  executableName: screenpolish
+  # Hyprland matches windows by app_id/WM_CLASS, which Electron takes from the
+  # desktop entry name (set as `desktopName` in package.json). Without this a
+  # `windowrule` in a user's hyprland.conf cannot target ScreenPolish at all.
+  syncDesktopName: true
+  extraResources:
+    - from: node_modules/ffmpeg-static/ffmpeg.LICENSE
+      to: ffmpeg.LICENSE
+    - from: THIRD_PARTY_NOTICES.md
+      to: THIRD_PARTY_NOTICES.md
+    - from: node_modules/ffmpeg-static/ffmpeg
+      to: ffmpeg
+    # Captions: whisper-cli and the English base model, from scripts/fetch-whisper.sh.
+    - from: vendor/whisper
+      to: whisper
+      filter: [whisper-cli, ggml-base.en.bin]
+    - from: resources/licenses/whisper.cpp-LICENSE.txt
+      to: whisper/LICENSE
+pacman:
+  # The package is `screenpolish`, not `polish` (which is the npm package name).
+  packageName: screenpolish
+  artifactName: ${productName}-${version}.${ext}
+  # electron-builder's default dependency list is Debian-flavoured and several of
+  # those names do not exist in the Arch repositories (libappindicator-gtk3 is
+  # AUR-only), which would make `pacman -U` refuse the package outright. These
+  # are the Arch names for what Electron actually needs. ffmpeg is not listed:
+  # the app ships its own binary in resources/.
+  depends: [gtk3, nss, alsa-lib, libnotify, libxss]
+
+  allowToChangeInstallationDirectory: true

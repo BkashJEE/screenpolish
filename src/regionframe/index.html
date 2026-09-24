@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'" />
+    <title>ScreenPolish region</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .frame {
+        position: absolute;
+        inset: 0;
+        border: 2px solid rgba(255, 77, 94, 0.95);
+        border-radius: 6px;
+        box-shadow:
+          inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+          0 0 0 1px rgba(0, 0, 0, 0.5);
+        animation: breathe 2.4s ease-in-out infinite;
+      }
+      .corner {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        border: 3px solid #fff;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+      }
+      .tl { left: -1px; top: -1px; border-right: 0; border-bottom: 0; border-radius: 4px 0 0 0; }
+      .tr { right: -1px; top: -1px; border-left: 0; border-bottom: 0; border-radius: 0 4px 0 0; }
+      .bl { left: -1px; bottom: -1px; border-right: 0; border-top: 0; border-radius: 0 0 0 4px; }
+      .br { right: -1px; bottom: -1px; border-left: 0; border-top: 0; border-radius: 0 0 4px 0; }
+      @keyframes breathe {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.55; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+    </div>
+  </body>
+</html>

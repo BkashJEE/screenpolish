@@ -1,0 +1,211 @@
+{
+  "ref": "origin/omarchy",
+  "refCommit": "d495f6be9d48f3b672aacf655e3c5f3a726caf56",
+  "files": 303,
+  "dropped": 27,
+  "stubbed": 2,
+  "edited": 6,
+  "added": 5,
+  "log": [
+    {
+      "action": "drop",
+      "target": "src/main/win",
+      "why": "Windows and macOS implementations"
+    },
+    {
+      "action": "drop",
+      "target": "src/brand",
+      "why": "the themed pack's art and code"
+    },
+    {
+      "action": "drop",
+      "target": "resources/backgrounds/hermes.jpg",
+      "why": "another project's artwork"
+    },
+    {
+      "action": "drop",
+      "target": "resources/cursors",
+      "why": "another project's artwork"
+    },
+    {
+      "action": "drop",
+      "target": "resources/brand",
+      "why": "unused marks of unrecorded origin"
+    },
+    {
+      "action": "drop",
+      "target": "MACOS.md",
+      "why": "macOS is not part of this edition"
+    },
+    {
+      "action": "drop",
+      "target": "WINDOWS.md",
+      "why": "Windows is not part of this edition"
+    },
+    {
+      "action": "drop",
+      "target": "docs/HANDOFF.md",
+      "why": "private working notes"
+    },
+    {
+      "action": "drop",
+      "target": "docs/COMPETITIVE-PLAN.md",
+      "why": "private planning"
+    },
+    {
+      "action": "drop",
+      "target": "docs/COMPARISON.md",
+      "why": "private planning"
+    },
+    {
+      "action": "drop",
+      "target": "docs/competition",
+      "why": "private planning"
+    },
+    {
+      "action": "drop",
+      "target": "docs/omarchy-studio-design.md",
+      "why": "private working notes"
+    },
+    {
+      "action": "drop",
+      "target": "FEATURES-IN-PROGRESS.md",
+      "why": "private planning"
+    },
+    {
+      "action": "drop",
+      "target": "scripts/export-public.mjs",
+      "why": "the export tool itself"
+    },
+    {
+      "action": "drop",
+      "target": "export",
+      "why": "the export tool itself"
+    },
+    {
+      "action": "drop",
+      "target": "src/main/brand-boundary.test.ts",
+      "why": "guards the pack this edition does not ship"
+    },
+    {
+      "action": "drop",
+      "target": "src/main/competition-docs.test.ts",
+      "why": "checks private planning documents"
+    },
+    {
+      "action": "drop",
+      "target": "docs/FEATURES.md",
+      "why": "showcase describing a pack this edition does not ship"
+    },
+    {
+      "action": "drop",
+      "target": "docs/images",
+      "why": "showcase art describing a pack this edition does not ship"
+    },
+    {
+      "action": "drop",
+      "target": "scripts/feature-cards.mjs",
+      "why": "generates showcase art for the private repository"
+    },
+    {
+      "action": "drop",
+      "target": "docs/superpowers",
+      "why": "private design notes"
+    },
+    {
+      "action": "drop",
+      "target": "docs/cinematic-frame-verification.md",
+      "why": "private verification notes"
+    },
+    {
+      "action": "drop",
+      "target": "docs/soft-sounds-verification.md",
+      "why": "private verification notes"
+    },
+    {
+      "action": "drop",
+      "target": "docs/quality-verification.md",
+      "why": "private verification notes"
+    },
+    {
+      "action": "drop",
+      "target": "docs/click-tracking-fix.md",
+      "why": "private verification notes"
+    },
+    {
+      "action": "drop",
+      "target": "docs/export-taint-fix.md",
+      "why": "private verification notes"
+    },
+    {
+      "action": "drop",
+      "target": "AGENTS.md",
+      "why": "instructions for agents working in the private repository"
+    },
+    {
+      "action": "stub",
+      "target": "src/main/win",
+      "why": "from export/stubs/win"
+    },
+    {
+      "action": "stub",
+      "target": "src/brand",
+      "why": "from export/stubs/brand"
+    },
+    {
+      "action": "edit",
+      "target": "src/ghost/index.html",
+      "why": "pack sprite"
+    },
+    {
+      "action": "edit",
+      "target": "electron-builder.yml",
+      "why": "Windows and macOS packaging"
+    },
+    {
+      "action": "edit",
+      "target": ".github/workflows/build.yml",
+      "why": "Windows and macOS build jobs"
+    },
+    {
+      "action": "edit",
+      "target": "THIRD_PARTY_NOTICES.md",
+      "why": "notices for what this edition ships"
+    },
+    {
+      "action": "edit",
+      "target": "resources/backgrounds/README.md",
+      "why": "background provenance for what this edition ships"
+    },
+    {
+      "action": "edit",
+      "target": "package.json",
+      "why": "licence and metadata for the public edition"
+    },
+    {
+      "action": "add",
+      "target": "CONTRIBUTING.md",
+      "why": "public edition file"
+    },
+    {
+      "action": "add",
+      "target": "LICENSE",
+      "why": "public edition file"
+    },
+    {
+      "action": "add",
+      "target": "NOTICE",
+      "why": "public edition file"
+    },
+    {
+      "action": "add",
+      "target": "README.md",
+      "why": "public edition file"
+    },
+    {
+      "action": "add",
+      "target": "SECURITY.md",
+      "why": "public edition file"
+    }
+  ]
+}

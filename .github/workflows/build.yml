@@ -1,0 +1,44 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+            build: npx electron-builder --linux pacman AppImage --publish never
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # The pacman target shells out to bsdtar, which the Ubuntu runner image
+      # does not install by default.
+      - if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+      # Captions: build whisper-cli and fetch the checksummed English model into
+      # vendor/whisper, which the Linux package ships as resources/whisper.
+      - if: matrix.name == 'linux'
+        run: bash scripts/fetch-whisper.sh
+      - run: npm ci
+      - run: npm test
+      - run: npx electron-vite build
+      - run: ${{ matrix.build }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenpolish-${{ matrix.name }}
+          path: |
+            release/*.AppImage
+            release/*.pacman
+          if-no-files-found: error

@@ -1,0 +1,360 @@
+// Polish main process bootstrap.
+
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import { Notification, app, dialog, globalShortcut, ipcMain, screen } from 'electron'
+import ffmpegStatic from 'ffmpeg-static'
+import type { StartRecordingRequest } from '@shared/ipc'
+import { cliArgs, handleCliPayload, runCliClient } from './cli'
+import { looksLikeCli } from './cli-parse'
+import { isCursorHidden, recoverCursorsIfNeeded, restoreSystemCursor } from './win/cursor-manager'
+import { getCursorSkin, loadSettings } from './settings'
+import { shortcutManager } from './shortcuts'
+import { DEFAULT_SHORTCUTS } from '@shared/shortcuts'
+import { registerExportRequestIpc } from './export-requests'
+import { durationOf } from './duration'
+import { createExportSink } from './export-sink'
+import { registerEditorIpc } from './ipc'
+import { whisperFiles } from './captions'
+import { recordingsRoot, registerMediaProtocol, registerMediaScheme } from './media-protocol'
+import { loadRecordDefaults, resolveDeviceChoice } from './record-defaults'
+import { preloadInputHook } from './input-logger'
+import { recordingSession } from './recording-session'
+import { runSelfTest, selfTestRequested } from './selftest'
+import { writeThumbnail } from './thumbnail'
+import { createTray, type TrayHandle } from './tray'
+import { closeCamBubble, closeGhostCursor, closeHud, closeRegionFrame, getCamBubble, getEditorWindow, openCamBubble, openEditor, openGhostCursor, openHud, openRegionFrame, pickRegion, updateHud } from './windows'
+import { canShowCaptureExcludedOverlays } from './capture-cursor'
+
+registerMediaScheme()
+app.setAppUserModelId('com.bikashjoshi.screenpolish')
+
+// Wayland (Omarchy/Hyprland): screen capture goes through xdg-desktop-portal and
+// PipeWire rather than X11, and Chromium only takes that route when the feature
+// is enabled. `ozone-platform-hint=auto` keeps the windows themselves native
+// Wayland instead of XWayland. Both must be set before the app is ready, and
+// neither does anything on Windows or macOS.
+if (process.platform === 'linux') {
+  // The Wayland GPU path can fail to import PipeWire/decoded video buffers
+  // (EGL_BAD_MATCH), producing green frames or stalled exports. Use the same
+  // CPU-backed compositor for capture, preview and export on this platform.
+  if (process.env.WAYLAND_DISPLAY || process.env.XDG_SESSION_TYPE === 'wayland') app.disableHardwareAcceleration()
+  app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer,GlobalShortcutsPortal')
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
+}
+
+// The self-test gets its own userData so it never fights a running dev instance for the single-instance lock.
+if (selfTestRequested()) app.setPath('userData', path.join(app.getPath('temp'), 'polish-selftest'))
+// Dev builds keep their own userData (and therefore their own single-instance
+// lock) so `npm run dev` never fights an installed Polish.
+else if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData'), 'ScreenPolish-dev'))
+
+// `Polish.exe <command>` is a CLI client: it never becomes the tray app itself.
+// See cli.ts. Everything else is the server (single instance).
+const argv = cliArgs()
+const isCliClient = looksLikeCli(argv) && !selfTestRequested()
+const gotLock = isCliClient ? false : app.requestSingleInstanceLock()
+if (isCliClient) {
+  void runCliClient(argv)
+} else if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, _argv, _cwd, data) => {
+    void handleCliPayload(data, { session, durationOf })
+  })
+  app.whenReady().then(main).catch((err) => {
+    console.error('[main] startup failed', err)
+    dialog.showErrorBox('Polish failed to start', err instanceof Error ? err.stack ?? err.message : String(err))
+    app.quit()
+  })
+}
+
+function ffmpegPath(): string {
+  if (app.isPackaged) return path.join(process.resourcesPath, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')
+  if (!ffmpegStatic) throw new Error('ffmpeg-static did not resolve an ffmpeg binary')
+  return ffmpegStatic
+}
+
+const session = recordingSession
+session.systemAudioEncoder = ffmpegPath
+let tray: TrayHandle | null = null
+let hudPulse: NodeJS.Timeout | null = null
+let quitting = false
+const CAN_SHOW_CAPTURE_OVERLAYS = canShowCaptureExcludedOverlays(process.platform)
+
+// Hotkey and tray recordings use whatever the record panel last chose.
+const defaultRequest = (source: StartRecordingRequest['source']): StartRecordingRequest => {
+  const d = loadRecordDefaults()
+  return {
+    source,
+    mic: resolveDeviceChoice(d.mic) ? { deviceId: resolveDeviceChoice(d.mic) as string } : null,
+    system: d.system,
+    webcam: resolveDeviceChoice(d.webcam) ? { deviceId: resolveDeviceChoice(d.webcam) as string } : null,
+    fps: d.fps
+  }
+}
+
+function reportError(title: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err)
+  console.error(`[main] ${title}:`, message)
+  dialog.showErrorBox(title, message)
+}
+
+async function recordPrimaryScreen(): Promise<void> {
+  if (session.state.status !== 'idle') return
+  const display = screen.getPrimaryDisplay()
+  await session.start(defaultRequest({ kind: 'screen', displayId: display.id }))
+}
+
+async function recordRegion(): Promise<void> {
+  if (session.state.status !== 'idle') return
+  session.beginPicking()
+  let picked = null
+  try {
+    picked = await pickRegion()
+  } finally {
+    session.endPicking()
+  }
+  if (!picked) return
+  await session.start(defaultRequest({ kind: 'region', displayId: picked.displayId, region: picked.region }))
+}
+
+function toggleRecording(): void {
+  const status = session.state.status
+  if (status === 'idle') recordPrimaryScreen().catch((err) => reportError('Could not start recording', err))
+  else if (status === 'countdown' || status === 'recording') session.stop().catch((err) => reportError('Could not stop recording', err))
+}
+
+async function main(): Promise<void> {
+  registerMediaProtocol()
+  // Load the input hook once, up front, so starting a recording never waits on
+  // a native module (and so a failure to load is reported at startup, not mid-take).
+  await preloadInputHook()
+  if (recoverCursorsIfNeeded()) console.warn('[main] restored system cursors left hidden by a previous run')
+
+  session.registerCaptureIpc()
+  ipcMain.on('polish:hud:stop', () => {
+    if (session.isActive) session.stop().catch((err) => reportError('Could not stop recording', err))
+  })
+  ipcMain.on('polish:hud:toggle-pause', () => session.togglePause())
+  registerExportRequestIpc()
+  session.onFinished = (folder) => {
+    // Thumbnail first so the library has it when the editor comes back; capped inside writeThumbnail.
+    writeThumbnail(ffmpegPath(), folder).finally(() => openEditor(folder))
+  }
+  session.onError = (message) => dialog.showErrorBox('Recording problem', message)
+  session.onWarning = (message) => {
+    if (Notification.isSupported()) new Notification({ title: 'ScreenPolish', body: message, silent: true }).show()
+  }
+
+  const exportSink = createExportSink({
+    root: recordingsRoot,
+    ffmpegPath,
+    onProgress: (_id, fraction) => tray?.setExportProgress(fraction)
+  })
+
+  const applyShortcuts = shortcutManager(globalShortcut, {
+    record: toggleRecording,
+    pause: () => session.togglePause(),
+    stop: () => { if (session.isActive) session.stop().catch((err) => reportError('Could not stop recording', err)) }
+  })
+  registerEditorIpc({ session, exportSink, root: recordingsRoot, getEditorWindow, durationOf, pickRegion, ffmpegPath,
+    whisper: () => whisperFiles({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, appPath: app.getAppPath(), platform: process.platform }),
+    applyShortcuts: (keys) => { applyShortcuts(keys); setTimeout(() => tray?.update(session.state), 0) }
+  })
+
+  tray = createTray({
+    recordScreen: () => recordPrimaryScreen().catch((err) => reportError('Could not start recording', err)),
+    recordRegion: () => recordRegion().catch((err) => reportError('Could not start recording', err)),
+    stop: () => session.stop().catch((err) => reportError('Could not stop recording', err)),
+    togglePause: () => session.togglePause(),
+    openLibrary: () => openEditor(''),
+
+    quit: () => app.quit()
+  })
+
+  session.onStateChange((state) => {
+    tray?.update(state)
+    // Keep the editor out of the shot; openEditor brings it back when the recording lands.
+    if (state.status === 'countdown' || state.status === 'recording') {
+      const win = getEditorWindow()
+      if (win?.isVisible()) win.hide()
+    }
+    // Recording HUD (countdown, timer, stop) and the ghost cursor, both invisible to the capture.
+    if (CAN_SHOW_CAPTURE_OVERLAYS && (state.status === 'countdown' || state.status === 'recording')) {
+      const display = session.activeDisplay ?? screen.getPrimaryDisplay()
+      openHud(display)
+      updateHud(state)
+      // Re-push once a second: the HUD page may still be loading when the first
+      // state arrives, and the timer needs a heartbeat anyway.
+      if (!hudPulse) hudPulse = setInterval(() => updateHud(session.state), 1000)
+      if (state.status === 'recording') {
+        // Only when we actually blanked the system cursors. In 'system' mode the
+        // real pointer is still on screen and a second one would be confusing.
+        if (isCursorHidden()) openGhostCursor(getCursorSkin())
+        const r = session.activeRegion
+        if (r?.isRegion && display) openRegionFrame(display, r.region)
+      }
+    } else {
+      closeRegionFrame()
+      if (hudPulse) {
+        clearInterval(hudPulse)
+        hudPulse = null
+      }
+      closeHud()
+      closeGhostCursor()
+    }
+    // Live camera view while recording with a webcam; gone the moment it stops.
+    if (CAN_SHOW_CAPTURE_OVERLAYS && state.status === 'recording' && !state.paused) {
+      const cam = session.activeWebcam
+      const display = session.activeDisplay
+      if (cam && display && !getCamBubble()) {
+        openCamBubble(display, cam)
+        if (!app.isPackaged && process.env.POLISH_SHOT_BUBBLE) devShotBubble(process.env.POLISH_SHOT_BUBBLE)
+        if (!app.isPackaged && process.env.POLISH_SHOT_HUD) devShotHud(process.env.POLISH_SHOT_HUD)
+      }
+    } else if (state.status !== 'recording') {
+      closeCamBubble()
+    }
+  })
+
+  try { applyShortcuts(loadSettings().shortcuts ?? DEFAULT_SHORTCUTS) }
+  catch (error) { console.warn('[main] Global shortcuts unavailable:', error) }
+
+  console.log(`[main] ready; recordings in ${recordingsRoot()}`)
+  if (selfTestRequested()) {
+    void runSelfTest(session)
+    return
+  }
+  if (!app.isPackaged && process.env.POLISH_GHOST_PREVIEW) {
+    void devShotGhost(process.env.POLISH_GHOST_PREVIEW, process.env.POLISH_GHOST_SKIN ?? getCursorSkin())
+    return
+  }
+  if (process.env.POLISH_SERVER !== '1') openEditor(process.env.POLISH_OPEN ?? '')
+  if (!app.isPackaged && process.env.POLISH_SHOT) devScreenshot(process.env.POLISH_SHOT)
+}
+
+// Dev-only: POLISH_GHOST_PREVIEW=<png> [POLISH_GHOST_SKIN=ring] opens the overlay
+// pointer on its own, drives it to a known point, and captures it. Never touches
+// the real system cursors, so it is safe to run while someone is using the machine.
+async function devShotGhost(target: string, skin: string): Promise<void> {
+  const { BrowserWindow } = await import('electron')
+  openGhostCursor(skin)
+  const win = BrowserWindow.getAllWindows().find((w) => w.getTitle() === 'ScreenPolish cursor')
+  if (!win) {
+    console.error('[shot] no ghost window')
+    app.quit()
+    return
+  }
+  await new Promise((r) => setTimeout(r, 1200))
+  try {
+    const move = "window.dispatchEvent(new MouseEvent('mousemove', { clientX: 240, clientY: 160 })); document.getElementById('ghost').style.transform"
+    // Same code path a forwarded WM_MOUSEMOVE takes, so this proves the fast path.
+    const fast = await win.webContents.executeJavaScript(move)
+    // ... and after the local-move grace period the main-process poll takes over.
+    await new Promise((r) => setTimeout(r, 400))
+    const slow = await win.webContents.executeJavaScript("document.getElementById('ghost').style.transform")
+    const shown = await win.webContents.executeJavaScript("document.querySelector('.skin.on')?.dataset.skin ?? 'none'")
+    console.log(`[shot] ghost skin=${shown} fast=${fast} fallback=${slow}`)
+    await win.webContents.executeJavaScript(move)
+    const image = await win.webContents.capturePage({ x: 180, y: 100, width: 160, height: 140 })
+    fs.writeFileSync(target, image.toPNG())
+    console.log(`[shot] wrote ghost ${target} ${image.getSize().width}x${image.getSize().height}`)
+  } catch (err) {
+    console.error('[shot] ghost failed', err)
+  }
+  closeGhostCursor()
+  app.quit()
+}
+
+// Dev-only: POLISH_SHOT_HUD=<png> captures the recording HUD 2.5 s into the recording.
+function devShotHud(target: string): void {
+  setTimeout(async () => {
+    const { BrowserWindow } = await import('electron')
+    const win = BrowserWindow.getAllWindows().find((w) => w.getTitle() === 'ScreenPolish recording')
+    if (!win) return
+    try {
+      const image = await win.webContents.capturePage()
+      fs.writeFileSync(target, image.toPNG())
+      console.log(`[shot] wrote hud ${target} ${image.getSize().width}x${image.getSize().height}`)
+    } catch (err) {
+      console.error('[shot] hud failed', err)
+    }
+  }, 2500)
+}
+
+// Dev-only: POLISH_SHOT_BUBBLE=<png> captures the camera bubble a moment after it opens.
+function devShotBubble(target: string): void {
+  setTimeout(async () => {
+    const win = getCamBubble()
+    if (!win) return
+    try {
+      const image = await win.webContents.capturePage()
+      fs.writeFileSync(target, image.toPNG())
+      console.log(`[shot] wrote bubble ${target} ${image.getSize().width}x${image.getSize().height}`)
+    } catch (err) {
+      console.error('[shot] bubble failed', err)
+    }
+  }, 2500)
+}
+
+// Dev-only: `POLISH_SHOT=<png> [POLISH_OPEN=<folder>] npm run dev` captures the
+// editor window to a PNG a few seconds after it loads, then exits. Lets an
+// agent look at the UI without desktop automation.
+function devScreenshot(target: string): void {
+  const win = getEditorWindow()
+  if (!win) return
+  const waitForAutoexport = (process.env.POLISH_QUERY ?? '').includes('autoexport=')
+  let done = false
+  const finish = async (): Promise<void> => {
+    if (done) return
+    done = true
+    try {
+      // POLISH_SHOT_JS runs in the page first (scroll a panel, open a sheet) so a shot can show what is below the fold.
+      if (process.env.POLISH_SHOT_JS) {
+        await win.webContents.executeJavaScript(process.env.POLISH_SHOT_JS, true)
+        await new Promise((r) => setTimeout(r, 400))
+      }
+      const image = await win.webContents.capturePage()
+      fs.writeFileSync(target, image.toPNG())
+      console.log(`[shot] wrote ${target} ${image.getSize().width}x${image.getSize().height}`)
+    } catch (err) {
+      console.error('[shot] failed', err)
+    }
+    app.exit(0)
+  }
+  win.webContents.on('console-message', (event) => {
+    console.log(`[editor:${event.level}] ${event.message}`)
+    if (waitForAutoexport && event.message.startsWith('[autoexport]')) setTimeout(() => void finish(), 500)
+  })
+  const delay = Number(process.env.POLISH_SHOT_DELAY ?? (waitForAutoexport ? 180000 : 3000))
+  win.webContents.once('did-finish-load', () => setTimeout(() => void finish(), delay))
+}
+
+app.on('window-all-closed', () => {
+  // Tray app: closing the editor keeps Polish running.
+})
+
+app.on('before-quit', (event) => {
+  if (quitting) return
+  quitting = true
+  if (session.isActive) {
+    event.preventDefault()
+    session
+      .stop()
+      .catch((err) => console.error('[main] stop on quit failed', err))
+      .finally(() => {
+        restoreSystemCursor()
+        app.quit()
+      })
+    return
+  }
+  restoreSystemCursor()
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+  restoreSystemCursor()
+  tray?.destroy()
+  tray = null
+})

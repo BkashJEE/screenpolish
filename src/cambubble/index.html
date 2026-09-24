@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:" />
+    <title>ScreenPolish camera</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        -webkit-app-region: drag;
+        user-select: none;
+      }
+      .bubble {
+        position: absolute;
+        inset: 6px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: #0a0b0e;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(255, 255, 255, 0.9);
+      }
+      .bubble.square {
+        border-radius: 18px;
+      }
+      video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+        display: block;
+      }
+      .dot {
+        position: absolute;
+        right: 14px;
+        top: 14px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ff4d4f;
+        box-shadow: 0 0 8px #ff4d4f;
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      .status {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 10px;
+        text-align: center;
+        font: 11px "Segoe UI", system-ui, sans-serif;
+        color: #fff;
+        text-shadow: 0 1px 2px #000;
+        opacity: 0.85;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bubble" id="bubble">
+      <video id="cam" autoplay muted playsinline></video>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="dot" title="Recording"></div>
+    <script type="module" src="./cambubble.ts"></script>
+  </body>
+</html>

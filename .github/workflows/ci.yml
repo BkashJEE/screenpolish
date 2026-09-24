@@ -1,0 +1,59 @@
+name: ci
+
+# build.yml only fires on a tag or a manual dispatch, so nothing ran on a pull
+# request: every branch merged unchecked. This is the gate that makes
+# `npm run typecheck` and `npm test` actually enforced rather than remembered.
+on:
+  # Pull requests cover feature branches. Pushes are limited to the three base
+  # branches so a branch with an open PR is not checked twice for the same
+  # commit.
+  push:
+    branches: [main, omarchy, windows]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same ref supersedes the older run. Actions minutes on a
+# private repository are billed, so don't pay for a result nobody will read.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history, so the attribution check can see the PR's own commits.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      # AGENTS.md: no Co-Authored-By trailer and no "Generated with" line in
+      # commits or PR descriptions. History from before the rule is left alone;
+      # only what this pull request adds is checked. The body is read at open
+      # and on each push (editing only the description does not re-run CI).
+      - if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          pattern='co-authored-by|generated with'
+          commits=$(git log -i -E --grep="$pattern" --format='%h %s' "$BASE..$HEAD")
+          body=$(printf '%s' "$BODY" | grep -i -E "$pattern" || true)
+          if [ -n "$commits$body" ]; then
+            [ -n "$commits" ] && printf 'Commits with attribution lines:\n%s\n' "$commits"
+            [ -n "$body" ] && printf 'PR description line:\n%s\n' "$body"
+            echo "Remove Co-Authored-By / Generated with lines (see AGENTS.md)."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # Types and unit tests both pass on code that fails to bundle: a bad asset
+      # import or a missing renderer entry only shows up here.
+      - run: npm run build

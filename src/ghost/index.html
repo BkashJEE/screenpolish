@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' polish:; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>ScreenPolish cursor</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        cursor: none;
+      }
+      /*
+        The window spans a whole display and never moves. Only this layer moves,
+        by transform, so the sprite is repainted by the compositor instead of by
+        a SetWindowPos round trip through the main process.
+      */
+      #ghost {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 0;
+        height: 0;
+        will-change: transform;
+        transform: translate3d(-999px, -999px, 0);
+      }
+      /*
+        Each sprite draws in its own user units with the hot spot at (0,0), so the
+        svg's top-left corner is at the viewBox origin. Pulling the element back by
+        that origin puts the hot spot exactly on the layer origin, which is exactly
+        on the real pointer. The inline left/top on each svg is its viewBox min.
+      */
+      .skin {
+        position: absolute;
+        display: none;
+        overflow: visible;
+        filter: drop-shadow(0 1.5px 2.2px rgba(0, 0, 0, 0.45));
+      }
+      .skin.on {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="ghost">
+      <!-- Same soft hand silhouette and palette as the exported canvas cursor.
+           Hotspot stays at (0,0); no idle movement or global system-cursor change. -->
+      <svg class="skin" data-skin="hand" style="left: -9px; top: -3px; filter: drop-shadow(0 0.8px 1.3px rgba(0,0,0,0.20))" width="22" height="30" viewBox="-9 -3 22 30" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hand-body" gradientUnits="userSpaceOnUse" x1="-3" y1="0" x2="6" y2="22">
+            <stop offset="0" stop-color="#fffefa" />
+            <stop offset="0.6" stop-color="#f8f7f3" />
+            <stop offset="1" stop-color="#dedfe2" />
+          </linearGradient>
+        </defs>
+        <path d="M0 0 C-1.1 0 -1.85 .85 -1.85 2 L-1.85 12 -4.1 9.85 C-5.05 8.95 -6.4 9.25 -6.65 10.35 C-6.85 11.05 -6.45 11.7 -5.9 12.55 L-2.6 18.3 C-1.8 19.75 -.4 20.4 -.2 22 L7.2 22 C7.2 20.6 9.2 18.65 9.2 16.4 L9.2 10.1 C9.2 8.05 6.5 8.05 6.5 10.1 L6.5 8.55 C6.5 6.65 3.8 6.65 3.8 8.55 L3.8 7.6 C3.8 5.75 1.85 5.75 1.85 7.6 L1.85 2 C1.85 .85 1.1 0 0 0 Z" fill="url(#hand-body)" stroke="#30343b" stroke-width="1.05" stroke-linejoin="round" stroke-linecap="round" />
+        <path d="M1.85 8.4 V12.7 M3.8 9.1 V13 M6.5 10.7 V13.3" fill="none" stroke="#30343b" stroke-width=".75" stroke-linecap="round" />
+      </svg>
+
+      <!-- Beveled arrow: gradient body, inner highlight on the top-left
+           edge, inner shade on the bottom-right, lit from the top-left. -->
+      <svg class="skin" data-skin="arrow" style="left: -3px; top: -3px" width="21" height="28" viewBox="-3 -3 21 28" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="arrow-body" x1="0" y1="0" x2="0.8" y2="1">
+            <stop offset="0" stop-color="#ffffff" />
+            <stop offset="0.52" stop-color="#f3f4f7" />
+            <stop offset="1" stop-color="#c4c8d2" />
+          </linearGradient>
+          <clipPath id="arrow-clip">
+            <path d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z" />
+          </clipPath>
+        </defs>
+        <path
+          d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z"
+          fill="url(#arrow-body)"
+          stroke="#1b1e25"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+        />
+        <g clip-path="url(#arrow-clip)" fill="none" stroke-linejoin="round">
+          <path d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z" transform="translate(1.05 1.05)" stroke="#ffffff" stroke-width="1.7" opacity="0.95" />
+          <path d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z" transform="translate(-1.05 -1.05)" stroke="#8c92a1" stroke-width="1.5" opacity="0.6" />
+        </g>
+      </svg>
+
+      <svg class="skin" data-skin="arrow-dark" style="left: -3px; top: -3px" width="21" height="28" viewBox="-3 -3 21 28" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="dark-body" x1="0" y1="0" x2="0.8" y2="1">
+            <stop offset="0" stop-color="#4a4e59" />
+            <stop offset="0.5" stop-color="#2b2e37" />
+            <stop offset="1" stop-color="#14161c" />
+          </linearGradient>
+          <clipPath id="dark-clip">
+            <path d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z" />
+          </clipPath>
+        </defs>
+        <path
+          d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z"
+          fill="url(#dark-body)"
+          stroke="#f2f3f6"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+        />
+        <g clip-path="url(#dark-clip)" fill="none" stroke-linejoin="round">
+          <path d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z" transform="translate(1.05 1.05)" stroke="#8f96a6" stroke-width="1.6" opacity="0.75" />
+          <path d="M0 0 L0 18 L4.75 13.4 L8.2 21.3 L11.95 19.66 L8.5 11.95 L14.83 11.66 Z" transform="translate(-1.05 -1.05)" stroke="#000000" stroke-width="1.5" opacity="0.55" />
+        </g>
+      </svg>
+
+      <!-- Centred skins: hot spot is the middle, so the viewBox min is negative on both axes. -->
+      <svg class="skin" data-skin="ring" style="left: -15px; top: -15px" width="30" height="30" viewBox="-15 -15 30 30" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="ring-rim" x1="0" y1="0" x2="0.7" y2="1">
+            <stop offset="0" stop-color="#ffffff" />
+            <stop offset="0.55" stop-color="#e7e9ef" />
+            <stop offset="1" stop-color="#aeb4c2" />
+          </linearGradient>
+        </defs>
+        <circle cx="0" cy="0" r="9.6" fill="none" stroke="#14161c" stroke-width="4.6" opacity="0.55" />
+        <circle cx="0" cy="0" r="9.6" fill="none" stroke="url(#ring-rim)" stroke-width="2.5" />
+        <path d="M -6.8 -6.8 A 9.6 9.6 0 0 1 2 -9.2" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.9" />
+        <circle cx="0" cy="0" r="1.9" fill="#ffffff" stroke="#14161c" stroke-width="1.1" />
+      </svg>
+
+      <!-- Shaded sphere: radial gradient off-centre plus a specular dot. -->
+      <svg class="skin" data-skin="dot" style="left: -11px; top: -11px" width="22" height="22" viewBox="-11 -11 22 22" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="dot-body" cx="0.34" cy="0.3" r="0.78">
+            <stop offset="0" stop-color="#ffffff" />
+            <stop offset="0.5" stop-color="#eceef3" />
+            <stop offset="1" stop-color="#a9afbe" />
+          </radialGradient>
+        </defs>
+        <circle cx="0" cy="0" r="6.4" fill="url(#dot-body)" stroke="#1b1e25" stroke-width="1.7" />
+        <ellipse cx="-2.1" cy="-2.6" rx="2.2" ry="1.5" fill="#ffffff" opacity="0.85" transform="rotate(-32)" />
+      </svg>
+
+      <svg class="skin" data-skin="crosshair" style="left: -17px; top: -17px" width="34" height="34" viewBox="-17 -17 34 34" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="cross-arm" x1="0" y1="0" x2="0.7" y2="1">
+            <stop offset="0" stop-color="#ffffff" />
+            <stop offset="1" stop-color="#c3c8d3" />
+          </linearGradient>
+        </defs>
+        <g stroke="#14161c" stroke-width="4.4" stroke-linecap="round" opacity="0.5">
+          <path d="M-13 0 H-4.5 M4.5 0 H13 M0 -13 V-4.5 M0 4.5 V13" />
+        </g>
+        <g stroke="url(#cross-arm)" stroke-width="2" stroke-linecap="round">
+          <path d="M-13 0 H-4.5 M4.5 0 H13 M0 -13 V-4.5 M0 4.5 V13" />
+        </g>
+        <circle cx="0" cy="0" r="1.5" fill="#ffffff" stroke="#14161c" stroke-width="0.9" />
+      </svg>
+    </div>
+    <script>
+      // Coordinates arrive two ways. Forwarded WM_MOUSEMOVE (setIgnoreMouseEvents
+      // with forward) is the fast path: it lands in this renderer at the native
+      // pointer rate with no IPC and no window move. The main process also pushes
+      // a slow poll so the sprite cannot get stranded if forwarding stops (a
+      // higher always-on-top window, a display change, a fresh page load).
+      const ghost = document.getElementById('ghost')
+      const params = new URLSearchParams(location.hash.slice(1))
+      const skin = params.get('skin') || 'hand'
+      const originX = Number(params.get('x') || 0)
+      const originY = Number(params.get('y') || 0)
+
+      const chosen = document.querySelector(`.skin[data-skin="${CSS.escape(skin)}"]`) || document.querySelector('.skin')
+      if (chosen) chosen.classList.add('on')
+
+      let lastLocal = 0
+      function place(x, y) {
+        ghost.style.transform = `translate3d(${x}px, ${y}px, 0)`
+      }
+
+      window.addEventListener('mousemove', (e) => {
+        lastLocal = performance.now()
+        place(e.clientX, e.clientY)
+      })
+
+      // Screen-space fallback: convert to this window's client space with the
+      // display origin main handed us in the hash.
+      window.polishGhost?.onPoint((p) => {
+        if (performance.now() - lastLocal < 250) return
+        place(p.x - originX, p.y - originY)
+      })
+    </script>
+  </body>
+</html>

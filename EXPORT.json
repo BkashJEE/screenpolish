@@ -1,17 +1,12 @@
 {
   "ref": "origin/omarchy",
-  "refCommit": "d09f10ccf13c8066f672cc7ee272d2d9a873f532",
-  "files": 332,
-  "dropped": 24,
-  "stubbed": 2,
-  "edited": 9,
-  "added": 6,
+  "refCommit": "8395460bcc273bb0a5ef63a2510b4bd6c10a9b74",
+  "files": 334,
+  "dropped": 21,
+  "stubbed": 1,
+  "edited": 8,
+  "added": 8,
   "log": [
-    {
-      "action": "drop",
-      "target": "src/main/win",
-      "why": "Windows and macOS implementations"
-    },
     {
       "action": "drop",
       "target": "src/brand",
@@ -31,16 +26,6 @@
       "action": "drop",
       "target": "resources/brand",
       "why": "unused marks of unrecorded origin"
-    },
-    {
-      "action": "drop",
-      "target": "MACOS.md",
-      "why": "macOS is not part of this edition"
-    },
-    {
-      "action": "drop",
-      "target": "WINDOWS.md",
-      "why": "Windows is not part of this edition"
     },
     {
       "action": "drop",
@@ -129,11 +114,6 @@
     },
     {
       "action": "stub",
-      "target": "src/main/win",
-      "why": "from export/stubs/win"
-    },
-    {
-      "action": "stub",
       "target": "src/brand",
       "why": "from export/stubs/brand"
     },
@@ -146,11 +126,6 @@
       "action": "edit",
       "target": "electron-builder.yml",
       "why": "Windows and macOS packaging"
-    },
-    {
-      "action": "edit",
-      "target": ".github/workflows/build.yml",
-      "why": "Windows and macOS build jobs"
     },
     {
       "action": "edit",
@@ -201,6 +176,16 @@
       "action": "add",
       "target": "docs",
       "why": "public edition file"
+    },
+    {
+      "action": "add",
+      "target": "README.md",
+      "why": "all-platform edition file"
+    },
+    {
+      "action": "add",
+      "target": "docs",
+      "why": "all-platform edition file"
     },
     {
       "action": "edit",

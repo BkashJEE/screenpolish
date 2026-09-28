@@ -1,7 +1,8 @@
 # ScreenPolish features
 
-Everything below works on Omarchy / Hyprland, offline. Cards are drawings, not
-screenshots of the app.
+Everything below works offline. Where a feature depends on the platform, the
+limits section at the end says so. Cards are drawings, not screenshots of the
+app.
 
 <p>
   <img src="images/features/screenpolish.svg" width="49%" alt="ScreenPolish: Record. Polish. Export. Local, private and free, for Omarchy / Hyprland.">
@@ -98,13 +99,30 @@ screenshots of the app.
 - The recordings folder is a setting.
 - `record`, `clip` and `export` from the command line, each answering with JSON.
 
+## What differs by platform
+
+| | Linux (Hyprland) | Windows | macOS |
+| --- | --- | --- | --- |
+| Capture without the system cursor | yes, native | no | no |
+| Drawn pointer replaces the real one | yes | overlay | captured cursor stays |
+| Click and pointer log | evdev, mouse only | uiohook | uiohook |
+| Offline captions | bundled | not yet | not yet |
+| Recording, editing, effects, export | yes | yes | yes |
+
 ## Limits worth knowing
 
-- **Hyprland only** for cursor-free capture. Without `gpu-screen-recorder` the
+- **Cursor-free capture is Hyprland only.** Without `gpu-screen-recorder` the
   desktop portal is used instead, which bakes the system cursor into the video
   and leaves pointer styles with nothing to replace.
-- **Clicks need the `input` group.** Without it there is no click data and
-  automatic zoom has nothing to work from; the app says so at the start of a take.
-- **Keyboards are never opened.** No keystroke capture, by design.
-- **Captions are English** with the bundled base model.
+- **On Linux, clicks need the `input` group.** Without it there is no click
+  data and automatic zoom has nothing to work from; the app says so at the
+  start of a take.
+- **On Linux keyboards are never opened.** The pointer comes from the
+  compositor and buttons from one evdev device. On Windows and macOS input is
+  read through uiohook, which sees more than the mouse; only pointer and button
+  events are recorded.
+- **Captions are English** with the bundled base model, and are bundled on
+  Linux only.
 - **Encoding is on the CPU** where the GPU encoder is unavailable.
+- **Installers are unsigned.** SmartScreen warns on Windows; macOS quarantines
+  the app until `xattr -dr com.apple.quarantine` clears it.

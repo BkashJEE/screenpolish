@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const out = join(root, 'docs/images/features')
 const PUBLIC = true
+// Which platforms the cards claim. Defaults to all of them, so the private
+// repository is unaffected; the Linux-only edition asks for `--platforms linux`.
+const LINUX_ONLY = false
 
 const W = 600
 const H = 340
@@ -18,9 +21,10 @@ const C = {
   ink: '#f1f2f5', muted: '#a3a9b5', edge: '#2a2e37', top: '#1a1d24', bottom: '#111318',
   accent: '#f2804f', tile: '#2b1c14', ok: '#5fcb98', okBg: '#15302a', soon: '#9097a3', soonBg: '#22262d'
 }
-// The private build runs on both platforms; the public Omarchy edition is Linux only.
-const BOTH = PUBLIC ? [['Linux · Hyprland', 'ok']] : [['Linux', 'ok'], ['Windows', 'ok']]
-const CAPTIONS = PUBLIC ? [['Linux', 'ok']] : [['Linux', 'ok'], ['Windows soon', 'soon']]
+// Chips follow the platforms, and the wording follows the edition: an edition
+// without the themed pack must not describe it, whichever platforms it builds.
+const BOTH = LINUX_ONLY ? [['Linux · Hyprland', 'ok']] : [['Linux', 'ok'], ['Windows', 'ok']]
+const CAPTIONS = LINUX_ONLY ? [['Linux', 'ok']] : [['Linux', 'ok'], ['Windows soon', 'soon']]
 
 // Icons are drawn on a 24-unit grid with round strokes.
 const ICONS = {
@@ -106,7 +110,9 @@ function card(c) {
   return frame(icon + title + text + chipsSvg(c.chips), `${c.title}: ${c.text.join(' ')}`)
 }
 
-const tagline = 'Local, private and free, for Omarchy / Hyprland.'
+const tagline = LINUX_ONLY
+  ? 'Local, private and free, for Omarchy / Hyprland.'
+  : 'Local, private and free, for Omarchy / Hyprland and Windows.'
 
 function heroCard() {
   const logo = `<image x="44" y="40" width="96" height="96" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,${readFileSync(join(root, 'resources/icon-256.png')).toString('base64')}"/>`
@@ -120,4 +126,4 @@ function heroCard() {
 mkdirSync(out, { recursive: true })
 writeFileSync(join(out, 'screenpolish.svg'), heroCard())
 for (const c of CARDS) writeFileSync(join(out, `${c.id}.svg`), card(c))
-console.log(`Wrote ${CARDS.length + 1} ${PUBLIC ? 'public' : 'private'} cards to docs/images/features/`)
+console.log(`Wrote ${CARDS.length + 1} ${PUBLIC ? 'public' : 'private'} cards (${LINUX_ONLY ? 'Linux only' : 'all platforms'}) to docs/images/features/`)

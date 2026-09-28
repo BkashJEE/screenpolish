@@ -14,6 +14,37 @@ files:
 asarUnpack:
   - node_modules/uiohook-napi/**
   - node_modules/koffi/**
+win:
+  target: [nsis]
+  icon: resources/icon.ico
+  extraResources:
+    # Licence texts first; the win-only koffi entry on the windows branch follows ffmpeg.exe.
+    # ffmpeg-static names the licence after the binary, so on Windows it is
+    # ffmpeg.exe.LICENSE. A missing source here is only a warning, which is how
+    # the Windows package shipped GPL ffmpeg with no licence beside it.
+    - from: node_modules/ffmpeg-static/ffmpeg.exe.LICENSE
+      to: ffmpeg.LICENSE
+    - from: THIRD_PARTY_NOTICES.md
+      to: THIRD_PARTY_NOTICES.md
+    - from: node_modules/ffmpeg-static/ffmpeg.exe
+      to: ffmpeg.exe
+mac:
+  target: [dmg, zip]
+  icon: resources/icon.png
+  category: public.app-category.video
+  identity: null
+  hardenedRuntime: false
+  extendInfo:
+    NSCameraUsageDescription: ScreenPolish records your camera for the webcam bubble.
+    NSMicrophoneUsageDescription: ScreenPolish records your microphone.
+    NSScreenCaptureUsageDescription: ScreenPolish records your screen.
+  extraResources:
+    - from: node_modules/ffmpeg-static/ffmpeg.LICENSE
+      to: ffmpeg.LICENSE
+    - from: THIRD_PARTY_NOTICES.md
+      to: THIRD_PARTY_NOTICES.md
+    - from: node_modules/ffmpeg-static/ffmpeg
+      to: ffmpeg
 linux:
   # pacman for Arch and Omarchy; AppImage so every other distribution has
   # something to run without packaging work.
@@ -53,3 +84,8 @@ pacman:
   # are the Arch names for what Electron actually needs. ffmpeg is not listed:
   # the app ships its own binary in resources/.
   depends: [gtk3, nss, alsa-lib, libnotify, libxss]
+dmg:
+  sign: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

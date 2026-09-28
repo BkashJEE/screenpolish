@@ -11,6 +11,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - os: windows-latest
+            name: windows
+            build: npx electron-builder --win nsis --publish never
+          - os: macos-latest
+            name: mac
+            build: npx electron-builder --mac dmg zip --arm64 --x64 --publish never
           - os: ubuntu-latest
             name: linux
             build: npx electron-builder --linux pacman AppImage --publish never
@@ -41,6 +47,9 @@ jobs:
         with:
           name: screenpolish-${{ matrix.name }}
           path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
             release/*.AppImage
             release/*.pacman
           if-no-files-found: error

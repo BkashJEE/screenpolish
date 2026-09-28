@@ -1,10 +1,10 @@
 {
   "ref": "origin/omarchy",
-  "refCommit": "d622be69b6197f30a83ba5eae35a997928d8ad7a",
-  "files": 320,
+  "refCommit": "d09f10ccf13c8066f672cc7ee272d2d9a873f532",
+  "files": 332,
   "dropped": 24,
   "stubbed": 2,
-  "edited": 7,
+  "edited": 9,
   "added": 6,
   "log": [
     {
@@ -164,6 +164,11 @@
     },
     {
       "action": "edit",
+      "target": "src/render/background-brand.test.ts",
+      "why": "a background this edition does not ship"
+    },
+    {
+      "action": "edit",
       "target": "package.json",
       "why": "licence and metadata for the public edition"
     },
@@ -196,6 +201,11 @@
       "action": "add",
       "target": "docs",
       "why": "public edition file"
+    },
+    {
+      "action": "edit",
+      "target": "scripts/feature-cards.mjs",
+      "why": "cards describe this edition only"
     },
     {
       "action": "edit",

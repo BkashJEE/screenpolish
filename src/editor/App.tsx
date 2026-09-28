@@ -1,3 +1,4 @@
+import { readLastEdited, writeLastEdited } from './lib/last-edited'
 import { useEffect, useState } from 'react'
 import type { AppSettings } from '../shared/ipc'
 import { DEFAULT_SHORTCUTS, shortcutLabel } from '../shared/shortcuts'
@@ -58,6 +59,8 @@ function Shell() {
     return initialFolder ? { kind: 'editor', folder: initialFolder } : { kind: 'library' }
   })
   const [libraryKey, setLibraryKey] = useState(0)
+  // The Edit tab returns to the recording that was open last, across restarts.
+  const [lastEdited, setLastEdited] = useState<string | null>(() => readLastEdited())
   const [mobilePane, setMobilePane] = useState<MobilePane>('record')
   const recording = useRecordingState()
   const compact = useCompactLayout()
@@ -70,6 +73,12 @@ function Shell() {
 
   useEffect(() => window.polish.onOpen((folder) => setView(folder ? { kind: 'editor', folder } : { kind: 'library' })), [])
 
+  useEffect(() => {
+    if (view.kind !== 'editor') return
+    setLastEdited(view.folder)
+    writeLastEdited(view.folder)
+  }, [view])
+
   // A finished recording (state back to idle) refreshes the library and the source list.
   useEffect(() => {
     if (recording.status === 'idle') setLibraryKey((k) => k + 1)
@@ -79,10 +88,13 @@ function Shell() {
     <div className="polish-shell flex h-full bg-bg-0 text-fg">
       <StudioRail
         active={activeDestination}
-        editorAvailable={view.kind === 'editor'}
+        editorAvailable={view.kind === 'editor' || lastEdited !== null}
         onCapture={() => openWorkspace('capture')}
         onLibrary={() => openWorkspace('library')}
-        onEditor={() => undefined}
+        onEditor={() => {
+          if (view.kind === 'editor') return
+          if (lastEdited) setView({ kind: 'editor', folder: lastEdited })
+        }}
       />
       <div className="studio-main flex min-h-0 min-w-0 flex-1 flex-col">
         <RecordingBanner state={recording} />

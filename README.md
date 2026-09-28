@@ -51,6 +51,25 @@ account, no upload, no telemetry — the recording never leaves your machine.
   at the start of a take rather than producing an empty log quietly.
 - Node 22 or 24 to build. Node 26 breaks Electron's own installer.
 
+## Install
+
+One file, which checks your system, asks where to put the app, and offers to
+install what is missing:
+
+```bash
+curl -fsSL https://github.com/BkashJEE/screenpolish-omarchy/releases/latest/download/ScreenPolish-0.3.0-installer.run -o screenpolish.run
+chmod +x screenpolish.run
+./screenpolish.run
+```
+
+Prefer a package? `ScreenPolish-0.3.0.pacman` for Arch and Omarchy, or the
+`.AppImage` for anything else — both on the
+[releases page](https://github.com/BkashJEE/screenpolish-omarchy/releases).
+Checksums travel with them in `SHA256SUMS.txt`.
+
+Removing it again: `./screenpolish.run --uninstall`, which takes out exactly
+what it installed and leaves your recordings alone.
+
 ## Build and run
 
 ```bash

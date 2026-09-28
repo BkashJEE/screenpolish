@@ -11,6 +11,7 @@ import {
   overlayLabel,
   type OverlayPatch
 } from '../lib/overlays'
+import { overlayAlphaAt, overlayEnd } from '../../render/overlays'
 import { formatTime } from '../lib/time'
 import { ArrowIcon, BlurIcon, BoxIcon, Copy, ImageIcon, Smile, TextIcon, Trash, X } from './icons'
 import { Button, ColorField, Kbd, NumberField, Row, Section, Segmented, Select, SliderField, TextInput, Toggle, cx } from './ui'
@@ -25,6 +26,8 @@ export interface OverlaysProps {
   onPatch: (id: string, patch: OverlayPatch) => void
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
+  /** Move the playhead, so an overlay that is not shown yet can be found. */
+  onSeek: (t: number) => void
 }
 
 const KIND_ICON: Record<OverlayKind, (p: { size?: number; className?: string }) => React.ReactNode> = {
@@ -37,7 +40,7 @@ const KIND_ICON: Record<OverlayKind, (p: { size?: number; className?: string }) 
 }
 
 export const Overlays = memo(function Overlays(props: OverlaysProps) {
-  const { overlays, selectedId, duration, time, onSelect, onAdd, onPatch, onDelete, onDuplicate } = props
+  const { overlays, selectedId, duration, time, onSelect, onAdd, onPatch, onDelete, onDuplicate, onSeek } = props
   const [picker, setPicker] = useState(false)
   const selected = overlays.find((o) => o.id === selectedId) ?? null
   const hasDuration = Number.isFinite(duration) && duration > 0
@@ -135,6 +138,7 @@ export const Overlays = memo(function Overlays(props: OverlaysProps) {
           onPatch={(p) => onPatch(selected.id, p)}
           onDelete={() => onDelete(selected.id)}
           onDuplicate={() => onDuplicate(selected.id)}
+          onSeek={onSeek}
           onClose={() => onSelect(null)}
         />
       ) : (
@@ -198,6 +202,7 @@ function OverlayEditor({
   onPatch,
   onDelete,
   onDuplicate,
+  onSeek,
   onClose
 }: {
   overlay: Overlay
@@ -206,6 +211,7 @@ function OverlayEditor({
   onPatch: (patch: OverlayPatch) => void
   onDelete: () => void
   onDuplicate: () => void
+  onSeek: (t: number) => void
   onClose: () => void
 }) {
   const hasDuration = Number.isFinite(duration) && duration > 0
@@ -231,6 +237,14 @@ function OverlayEditor({
         </button>
       </div>
 
+      {overlayAlphaAt(overlay, time, duration) <= 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-[7px] border border-[#5a4526] bg-[#2a2113] px-2.5 py-1.5 text-[11.5px] text-[#e3b25c]">
+          <span>Not shown at this moment. It runs {formatTime(overlay.start, { fraction: false })}–{formatTime(overlayEnd(overlay, duration), { fraction: false })}.</span>
+          <Button size="sm" variant="ghost" onClick={() => onSeek(overlay.start + 0.05)} title="Move the playhead to where this overlay starts">
+            Jump to it
+          </Button>
+        </div>
+      )}
       {overlay.kind === 'text' && (
         <textarea
           aria-label="Overlay text"

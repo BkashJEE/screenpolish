@@ -2,7 +2,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import { BrowserWindow, dialog, ipcMain, nativeImage, shell, type IpcMainInvokeEvent } from 'electron'
 import {
   EDITOR,
   type AppSettings,
@@ -15,7 +15,9 @@ import {
 } from '@shared/ipc'
 import type { CaptureRegion, Project, RecordingEvents, RecordingFiles, RecordingSummary } from '@shared/types'
 import { assertInsideRoot, type ExportSink } from './export-sink'
+import { copyFileToClipboard } from './clipboard-file'
 import { allowImage, mediaUrl } from './media-protocol'
+import { ensureShelf, listTracks } from './music-library'
 import { isRecordingFolderName, parseFolderName, sanitizeBaseName, uniqueName } from './naming'
 import { mergeProject, serializeProject } from './project-io'
 import { saveRecordDefaults } from './record-defaults'
@@ -34,6 +36,8 @@ export interface EditorIpcDeps {
   session: RecordingSession
   exportSink: ExportSink
   root: () => string
+  /** Where the music shelf lives; a folder the user can drop tracks into. */
+  musicRoot: () => string
   getEditorWindow: () => BrowserWindow | null
 
   durationOf: (file: string) => Promise<number | null>
@@ -190,6 +194,29 @@ export function registerEditorIpc(deps: EditorIpcDeps): void {
     shell.showItemInFolder(target)
   })
 
+  // Linux has no share sheet, so an export is handed on by clipboard or drag.
+  // Both carry a text/uri-list, which is what a chat window or an upload box
+  // reads; the plain text is the path, for a terminal.
+  ipcMain.handle(EDITOR.copyFile, (_e, target: string) => {
+    assertInsideRoot(deps.root(), target)
+    copyFileToClipboard(target)
+  })
+
+  ipcMain.handle(EDITOR.openFile, async (_e, target: string) => {
+    assertInsideRoot(deps.root(), target)
+    const failure = await shell.openPath(target)
+    if (failure) throw new Error(failure)
+  })
+
+  // startDrag must run inside the renderer's dragstart, so this is a send and
+  // not an invoke: awaiting a round trip would let the gesture end first.
+  ipcMain.on(EDITOR.dragFile, (event, target: string) => {
+    assertInsideRoot(deps.root(), target)
+    const thumb = path.join(path.dirname(target), 'thumb.jpg')
+    const icon = fs.existsSync(thumb) ? nativeImage.createFromPath(thumb).resize({ height: 96 }) : nativeImage.createEmpty()
+    event.sender.startDrag({ file: target, icon })
+  })
+
   ipcMain.handle(EDITOR.openExternal, async (_e, url: string) => {
     if (!/^(https?:|mailto:)/i.test(url)) throw new Error(`Refusing to open ${url}`)
     await shell.openExternal(url)
@@ -242,6 +269,20 @@ export function registerEditorIpc(deps: EditorIpcDeps): void {
     const picked = result.canceled ? null : result.filePaths[0] ?? null
     if (picked) allowImage(picked)
     return picked
+  })
+
+  // The music shelf: a plain folder the editor reads. Listing a track also
+  // clears it for the media protocol, which is how the renderer plays it — the
+  // same gate a file chosen through the dialog goes through.
+  ipcMain.handle(EDITOR.listMusic, () => {
+    const tracks = listTracks(ensureShelf(deps.musicRoot()))
+    for (const track of tracks) allowImage(track.path)
+    return tracks
+  })
+
+  ipcMain.handle(EDITOR.openMusicFolder, async () => {
+    const failure = await shell.openPath(ensureShelf(deps.musicRoot()))
+    if (failure) throw new Error(failure)
   })
 
   // Thumbnail maker: a rendered still into <folder>/exports/<name>.<png|jpg>.

@@ -141,6 +141,9 @@ export const EDITOR = {
   save: 'polish:project:save',
   list: 'polish:recordings:list',
   reveal: 'polish:shell:reveal',
+  copyFile: 'polish:shell:copy-file',
+  openFile: 'polish:shell:open-file',
+  dragFile: 'polish:shell:drag-file',
   openExternal: 'polish:shell:open-external',
   deleteRecording: 'polish:recordings:delete',
   exportBegin: 'polish:export:begin',
@@ -150,6 +153,8 @@ export const EDITOR = {
   exportProgress: 'polish:export:progress',
   pickImage: 'polish:dialog:pick-image',
   pickAudio: 'polish:dialog:pick-audio',
+  listMusic: 'polish:music:list',
+  openMusicFolder: 'polish:music:open-folder',
   saveImage: 'polish:image:save',
   setCover: 'polish:image:set-cover',
   startRecording: 'polish:recording:start',
@@ -267,12 +272,24 @@ export interface StartRecordingRequest {
 }
 
 /** API exposed to the editor by src/preload/editor.ts as window.polish */
+export interface MusicTrack {
+  path: string
+  name: string
+  bytes: number
+}
+
 export interface EditorBridge {
   onOpen: (handler: (folder: string) => void) => () => void
   load: (folder: string) => Promise<LoadedProject>
   save: (folder: string, project: Project) => Promise<void>
   list: () => Promise<RecordingSummary[]>
   reveal: (path: string) => Promise<void>
+  /** Put the file on the clipboard, for pasting into a chat or an upload box. */
+  copyFile: (path: string) => Promise<void>
+  /** Hand the file to whatever opens it by default. */
+  openFile: (path: string) => Promise<void>
+  /** Begin an OS drag carrying the file; the caller is inside a dragstart. */
+  dragFile: (path: string) => void
   openExternal: (url: string) => Promise<void>
   deleteRecording: (folder: string) => Promise<void>
   exportBegin: (request: ExportBeginRequest) => Promise<ExportBeginResponse>
@@ -282,6 +299,10 @@ export interface EditorBridge {
   exportProgress: (exportId: string, fraction: number) => void
   pickImage: () => Promise<string | null>
   pickAudio: () => Promise<string | null>
+  /** Tracks on the music shelf, ready to lay under a take. */
+  listMusic: () => Promise<MusicTrack[]>
+  /** Open the shelf in the file manager, so tracks can be dropped in. */
+  openMusicFolder: () => Promise<void>
   saveImage: (request: SaveImageRequest) => Promise<SaveImageResponse>
   setCover: (request: SetCoverRequest) => Promise<SaveImageResponse>
   startRecording: (request: StartRecordingRequest) => Promise<void>

@@ -110,6 +110,9 @@ export async function installMockBridge(): Promise<void> {
     },
     list: async () => recordings,
     reveal: async (p) => console.info('[mock] reveal', p),
+    copyFile: async (p) => console.info('[mock] copyFile', p),
+    openFile: async (p) => console.info('[mock] openFile', p),
+    dragFile: (p) => console.info('[mock] dragFile', p),
     openExternal: async (u) => console.info('[mock] openExternal', u),
     deleteRecording: async (folder) => {
       const i = recordings.findIndex((r) => r.folder === folder)
@@ -131,6 +134,8 @@ export async function installMockBridge(): Promise<void> {
 
     pickImage: async () => null,
     pickAudio: async () => null,
+    listMusic: async () => [],
+    openMusicFolder: async () => console.info('[mock] openMusicFolder'),
     saveImage: async (req) => {
       console.info('[mock] saveImage', req.name, req.format, req.data.byteLength, 'bytes')
       return { path: `${req.folder}\\exports\\${req.name}.${req.format}` }

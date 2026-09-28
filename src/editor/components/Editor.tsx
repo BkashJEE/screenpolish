@@ -526,6 +526,7 @@ function LoadedEditor({ loaded, onBack }: { loaded: LoadedProject; onBack: () =>
               onPatch={patchOverlay}
               onDelete={deleteOverlay}
               onDuplicate={copyOverlay}
+              onSeek={seek}
             />
           </Knobs>
         </aside>

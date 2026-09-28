@@ -278,18 +278,18 @@ export async function resolveCaptureTarget(
     }
     const identified = await byContent()
     if (identified) return identified
-    if (!region) {
-      // The pick does not fit the stream at all: the dialog handed over
-      // something else, so fall back to matching the stream on its own. The
-      // snapshot taken before the picker counts too: one failed hyprctl call
-      // while the dialog was open should not cost the take its input log.
-      for (const snapshot of [current, beforePicker]) {
-        if (!snapshot) continue
-        const guess = matchCaptureTarget(stream, expected, snapshot.monitors, snapshot.clients)
-        // A whole screen, or the rectangle the panel already asked for, places the stream
-        // without guessing between windows, so pointer coordinates stay meaningful.
-        if (guess.kind === 'monitor' || guess.kind === 'expected') return guess
-      }
+    // The pick could not be confirmed: either it does not fit the stream (the
+    // dialog handed over something else) or another window or monitor of the
+    // same size makes it indistinguishable. Match the stream on its own before
+    // giving up. The snapshot taken before the picker counts too: one failed
+    // hyprctl call while the dialog was open should not cost the take its
+    // input log.
+    for (const snapshot of [current, beforePicker]) {
+      if (!snapshot) continue
+      const guess = matchCaptureTarget(stream, expected, snapshot.monitors, snapshot.clients)
+      // A whole screen, or the rectangle the panel already asked for, places the stream
+      // without guessing between windows, so pointer coordinates stay meaningful.
+      if (guess.kind === 'monitor' || guess.kind === 'expected') return guess
     }
     return { kind: 'unknown', region: { ...expected, width: stream.width, height: stream.height } }
   }

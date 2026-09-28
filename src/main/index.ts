@@ -8,8 +8,8 @@ import type { StartRecordingRequest } from '@shared/ipc'
 import { cliArgs, handleCliPayload, runCliClient } from './cli'
 import { looksLikeCli } from './cli-parse'
 import { isCursorHidden, recoverCursorsIfNeeded, restoreSystemCursor } from './win/cursor-manager'
-import { getCursorSkin, loadSettings } from './settings'
-import { shortcutManager } from './shortcuts'
+import { defaultMusicRoot, getCursorSkin, loadSettings } from './settings'
+import { shortcutManager, shouldRegisterGlobalShortcuts } from './shortcuts'
 import { DEFAULT_SHORTCUTS } from '@shared/shortcuts'
 import { registerExportRequestIpc } from './export-requests'
 import { durationOf } from './duration'
@@ -25,6 +25,7 @@ import { writeThumbnail } from './thumbnail'
 import { createTray, type TrayHandle } from './tray'
 import { closeCamBubble, closeGhostCursor, closeHud, closeRegionFrame, getCamBubble, getEditorWindow, openCamBubble, openEditor, openGhostCursor, openHud, openRegionFrame, pickRegion, updateHud } from './windows'
 import { canShowCaptureExcludedOverlays } from './capture-cursor'
+import { TIMED_OUT, withTimeout } from './with-timeout'
 
 registerMediaScheme()
 app.setAppUserModelId('com.bikashjoshi.screenpolish')
@@ -80,6 +81,8 @@ session.systemAudioEncoder = ffmpegPath
 let tray: TrayHandle | null = null
 let hudPulse: NodeJS.Timeout | null = null
 let quitting = false
+/** Longest quitting waits for a recording to be written before going anyway. */
+const QUIT_STOP_TIMEOUT_MS = 30_000
 const CAN_SHOW_CAPTURE_OVERLAYS = canShowCaptureExcludedOverlays(process.platform)
 
 // Hotkey and tray recordings use whatever the record panel last chose.
@@ -153,12 +156,17 @@ async function main(): Promise<void> {
     onProgress: (_id, fraction) => tray?.setExportProgress(fraction)
   })
 
-  const applyShortcuts = shortcutManager(globalShortcut, {
+  // A development run leaves the desktop's recording hotkeys to the installed
+  // app unless it asks for them; see shouldRegisterGlobalShortcuts.
+  const ownsShortcuts = shouldRegisterGlobalShortcuts({ packaged: app.isPackaged })
+  const shortcutRegistry = ownsShortcuts ? globalShortcut : { register: () => true, unregisterAll: () => undefined }
+  if (!ownsShortcuts) console.log('[main] development run: recording hotkeys left to the installed app (POLISH_DEV_SHORTCUTS=1 to take them)')
+  const applyShortcuts = shortcutManager(shortcutRegistry, {
     record: toggleRecording,
     pause: () => session.togglePause(),
     stop: () => { if (session.isActive) session.stop().catch((err) => reportError('Could not stop recording', err)) }
   })
-  registerEditorIpc({ session, exportSink, root: recordingsRoot, getEditorWindow, durationOf, pickRegion, ffmpegPath,
+  registerEditorIpc({ session, exportSink, root: recordingsRoot, musicRoot: defaultMusicRoot, getEditorWindow, durationOf, pickRegion, ffmpegPath,
     whisper: () => whisperFiles({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, appPath: app.getAppPath(), platform: process.platform }),
     applyShortcuts: (keys) => { applyShortcuts(keys); setTimeout(() => tray?.update(session.state), 0) }
   })
@@ -340,13 +348,17 @@ app.on('before-quit', (event) => {
   quitting = true
   if (session.isActive) {
     event.preventDefault()
-    session
-      .stop()
-      .catch((err) => console.error('[main] stop on quit failed', err))
-      .finally(() => {
-        restoreSystemCursor()
-        app.quit()
-      })
+    // Quitting waits for the recording to be written, but not forever: this
+    // handler runs once, and a stop that never settles used to leave no way
+    // out of the app but killing it.
+    void withTimeout(
+      session.stop().catch((err) => console.error('[main] stop on quit failed', err)),
+      QUIT_STOP_TIMEOUT_MS
+    ).then((settled) => {
+      if (settled === TIMED_OUT) console.warn('[main] the recording did not finish in time; quitting anyway')
+      restoreSystemCursor()
+      app.quit()
+    })
     return
   }
   restoreSystemCursor()

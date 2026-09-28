@@ -23,7 +23,7 @@ export function StudioRail({
       onClick={onClick}
       disabled={disabled}
       aria-current={active === destination ? 'page' : undefined}
-      title={disabled ? `${label} opens with a recording` : label}
+      title={disabled ? `${label} opens once you have opened a recording from the library` : label}
     >
       {icon}
       <span>{label}</span>

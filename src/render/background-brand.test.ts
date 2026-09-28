@@ -44,20 +44,20 @@ describe('background branding', () => {
 
   it('leaves projects saved before themes existed unbranded', () => {
     const ctx = { save: vi.fn() }
-    drawBackgroundBrand(ctx as unknown as Ctx2D, { width: 1920, height: 1080 }, 'bundled:backgrounds/hermes.jpg')
+    drawBackgroundBrand(ctx as unknown as Ctx2D, { width: 1920, height: 1080 }, 'bundled:backgrounds/legacy.jpg')
     expect(ctx.save).not.toHaveBeenCalled()
   })
 })
 
 describe('brandImagePath', () => {
   it('names the theme only while the background is that image', () => {
-    expect(brandImagePath({ kind: 'image', imagePath: 'bundled:backgrounds/hermes.jpg' })).toBe('bundled:backgrounds/hermes.jpg')
+    expect(brandImagePath({ kind: 'image', imagePath: 'bundled:backgrounds/legacy.jpg' })).toBe('bundled:backgrounds/legacy.jpg')
   })
 
   it('draws no theme name on a gradient or solid, even with the old image path and flag still in the project', () => {
     // The owner's take: Omarchy theme picked, then switched to a gradient.
     expect(brandImagePath({ kind: 'gradient', imagePath: 'bundled:backgrounds/omarchy.png' })).toBeUndefined()
-    expect(brandImagePath({ kind: 'solid', imagePath: 'bundled:backgrounds/hermes.jpg' })).toBeUndefined()
+    expect(brandImagePath({ kind: 'solid', imagePath: 'bundled:backgrounds/legacy.jpg' })).toBeUndefined()
   })
 })
 

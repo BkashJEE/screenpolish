@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 
 /**
  * Windows and macOS implementations live in src/main/win/ only. The public
@@ -10,6 +10,8 @@ import { join } from 'node:path'
  */
 const WINDOWS_ONLY = ['uiohook-napi', 'koffi']
 const SRC = join(__dirname, '..')
+// Compared and reported with forward slashes, whichever separator walked here.
+const rel = (file: string) => relative(SRC, file).split(sep).join('/')
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -24,7 +26,7 @@ describe('platform boundary', () => {
 
   it.each(WINDOWS_ONLY)('imports %s only from src/main/win', (pkg) => {
     const offenders = files.filter((f) => new RegExp(`from '${pkg}'|import\\('${pkg}'\\)`).test(readFileSync(f, 'utf8')))
-    expect(offenders.map((f) => f.replace(`${SRC}/`, ''))).toEqual([])
+    expect(offenders.map(rel)).toEqual([])
   })
 
   it('keeps the Windows directory to the modules the export replaces', () => {

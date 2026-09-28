@@ -2,16 +2,14 @@
 // and docs/FEATURES.md. Run `node scripts/feature-cards.mjs` after changing a card.
 // Cards show shipped features only; platform chips must match the platform notes.
 //
-// `--edition public` draws the cards for the public Omarchy edition: Linux only,
-// and without the themed pack, which that edition does not ship. The export tool
-// runs it that way inside the tree it builds.
+// This edition has one set of cards: Linux only, and no themed pack.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const out = join(root, 'docs/images/features')
-const PUBLIC = process.argv.includes('--edition') && process.argv[process.argv.indexOf('--edition') + 1] === 'public'
+const PUBLIC = true
 
 const W = 600
 const H = 340
@@ -23,7 +21,6 @@ const C = {
 // The private build runs on both platforms; the public Omarchy edition is Linux only.
 const BOTH = PUBLIC ? [['Linux · Hyprland', 'ok']] : [['Linux', 'ok'], ['Windows', 'ok']]
 const CAPTIONS = PUBLIC ? [['Linux', 'ok']] : [['Linux', 'ok'], ['Windows soon', 'soon']]
-const pick = (privateText, publicText) => (PUBLIC ? publicText : privateText)
 
 // Icons are drawn on a 24-unit grid with round strokes.
 const ICONS = {
@@ -49,7 +46,7 @@ const CARDS = [
   { id: 'cursor-free-capture', icon: 'capture', title: 'Cursor-free capture',
     text: ['Records Hyprland natively without the system', 'cursor, then draws a clean one on top.'], chips: [['Linux · Hyprland', 'ok']] },
   { id: 'cursor-styles', icon: 'cursor', title: 'Smooth cursor styles',
-    text: pick(['A smoothed pointer as an arrow, dot, hand,', 'bobbing pointer or the Hermes knight.'], ['A smoothed pointer as an arrow, dot,', 'hand or bobbing pointer.']), chips: BOTH },
+    text: ['A smoothed pointer as an arrow, dot,', 'hand or bobbing pointer.'], chips: BOTH },
   { id: 'click-effects', icon: 'ripple', title: 'Clicks you can see',
     text: ['Ripples and bounce on every click, with soft', 'click and zoom sounds you can switch off.'], chips: BOTH },
   { id: 'edit', icon: 'edit', title: 'Cut and transition',
@@ -61,7 +58,7 @@ const CARDS = [
   { id: 'annotations', icon: 'annotate', title: 'Blur, arrows and boxes',
     text: ['Pixelate secrets, point at what matters and', 'highlight a region, each with its own timing.'], chips: BOTH },
   { id: 'backgrounds', icon: 'background', title: 'Backgrounds and themes',
-    text: pick(['Gradients, solids and images, plus Hermes and', 'Omarchy themes with their own lettering.'], ['Gradients, solids and your own images, plus', 'the Omarchy theme with its wordmark.']), chips: BOTH },
+    text: ['Gradients, solids and your own images, plus', 'the Omarchy theme with its wordmark.'], chips: BOTH },
   { id: '3d-frame', icon: 'frame', title: '3D frame and mockups',
     text: ['Tilt the whole frame in perspective, or wrap', 'the take in a browser, window or phone.'], chips: BOTH },
   { id: 'webcam', icon: 'webcam', title: 'Webcam bubble',
@@ -109,7 +106,7 @@ function card(c) {
   return frame(icon + title + text + chipsSvg(c.chips), `${c.title}: ${c.text.join(' ')}`)
 }
 
-const tagline = pick('Local, private and free, for Omarchy / Hyprland and Windows.', 'Local, private and free, for Omarchy / Hyprland.')
+const tagline = 'Local, private and free, for Omarchy / Hyprland.'
 
 function heroCard() {
   const logo = `<image x="44" y="40" width="96" height="96" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,${readFileSync(join(root, 'resources/icon-256.png')).toString('base64')}"/>`

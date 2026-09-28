@@ -23,6 +23,11 @@ function file(): string {
  * therefore never sees the app's settings) records into a scratch folder
  * instead of the owner's library. Ignored in a packaged build.
  */
+/** Where the music shelf lives: one folder, beside the rest of your music. */
+export function defaultMusicRoot(): string {
+  return path.join(app.getPath('music'), 'ScreenPolish')
+}
+
 export function defaultRecordingsRoot(): string {
   const override = process.env.POLISH_RECORDINGS_ROOT?.trim()
   if (override && path.isAbsolute(override) && !app.isPackaged) return path.normalize(override)

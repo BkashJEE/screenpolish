@@ -10,7 +10,6 @@ files:
   - resources/tray.png
   - resources/backgrounds/**
   - resources/fonts/**
-  - resources/cursors/**
   - resources/segmenter/**
 asarUnpack:
   - node_modules/uiohook-napi/**
@@ -54,5 +53,3 @@ pacman:
   # are the Arch names for what Electron actually needs. ffmpeg is not listed:
   # the app ships its own binary in resources/.
   depends: [gtk3, nss, alsa-lib, libnotify, libxss]
-
-  allowToChangeInstallationDirectory: true

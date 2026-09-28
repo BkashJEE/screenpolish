@@ -1,4 +1,5 @@
 import { memo, useEffect, useState, type ReactNode } from 'react'
+import type { MusicTrack } from '../../shared/ipc'
 import { CLICK_SOUND_STYLES, DEFAULT_CLICK_SOUND, type ClickSoundStyle } from '../../shared/click-sound'
 import { playClick, playZoomSound } from '../lib/click-player'
 import { DEFAULT_ZOOM_SOUND, type ZoomSoundStyle } from '../../shared/zoom-sound'
@@ -55,6 +56,86 @@ const THEME_LETTERING: Record<string, string> = {
 
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const signed = (v: number) => (v === 0 ? '0' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
+
+/**
+ * The music shelf: whatever is in the music folder, one click from the take.
+ *
+ * Picking a file from a dialog every time means keeping a folder of tracks in
+ * your head. This lists the folder instead, and stays a folder — drop a file
+ * in, it is there; delete it, it is gone. The dialog is kept for anything
+ * living elsewhere.
+ */
+function MusicShelf({ disabled, onAdd }: { disabled: boolean; onAdd: (path: string) => void }) {
+  const [tracks, setTracks] = useState<MusicTrack[]>([])
+  const [open, setOpen] = useState(false)
+
+  const refresh = (): void => {
+    void window.polish
+      .listMusic()
+      .then(setTracks)
+      .catch(() => setTracks([]))
+  }
+  // Read it when the shelf is opened, and again each time, since the folder is
+  // edited outside this app.
+  useEffect(() => {
+    if (open) refresh()
+  }, [open])
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5">
+        <Button size="sm" disabled={disabled} onClick={() => setOpen((v) => !v)}>
+          {open ? 'Hide music' : 'Music'}
+        </Button>
+        <Button
+          size="sm"
+          disabled={disabled}
+          onClick={() => {
+            void window.polish
+              .pickAudio()
+              .then((path) => {
+                if (path) onAdd(path)
+              })
+              .catch((error) => window.alert(`Could not select audio: ${String(error)}`))
+          }}
+        >
+          Choose a file
+        </Button>
+      </div>
+      {open && (
+        <div className="flex flex-col gap-1 rounded border border-line p-2">
+          {tracks.length === 0 ? (
+            <span className="text-[11px] text-fg-dim">
+              No tracks yet. Put audio files in the music folder and they appear here.
+            </span>
+          ) : (
+            tracks.map((track) => (
+              <button
+                key={track.path}
+                type="button"
+                disabled={disabled}
+                title={track.path}
+                className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-[11px] hover:bg-bg-4 disabled:opacity-50"
+                onClick={() => onAdd(track.path)}
+              >
+                <span className="min-w-0 truncate">{track.name}</span>
+                <span className="shrink-0 text-fg-dim">{Math.max(1, Math.round(track.bytes / 1_000_000))} MB</span>
+              </button>
+            ))
+          )}
+          <div className="flex items-center gap-1.5 pt-1">
+            <Button size="sm" variant="ghost" onClick={() => void window.polish.openMusicFolder().then(refresh)}>
+              Open folder
+            </Button>
+            <Button size="sm" variant="ghost" onClick={refresh}>
+              Refresh
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export const Knobs = memo(function Knobs(props: KnobsProps) {
   const [playful, setPlayful] = useState(() => localStorage.getItem('screenpolish.playful-sliders') === 'true')
@@ -705,9 +786,10 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
 
       {/* Audio -------------------------------------------------------------- */}
       <Section title="Audio">
-        <Button size="sm" disabled={duration <= 0 || (project.audioRegions?.length ?? 0) >= 30} onClick={() => { void window.polish.pickAudio().then((path) => {
-          if (path) onProject((p) => ({ ...p, audioRegions: [...(p.audioRegions ?? []), { id: crypto.randomUUID(), path, start: p.trim.start, end: p.trim.end || duration, offset: 0, volume: 0.5 }] }))
-        }).catch((error) => window.alert(`Could not select audio: ${String(error)}`)) }}>Add music or voiceover</Button>
+        <MusicShelf
+          disabled={duration <= 0 || (project.audioRegions?.length ?? 0) >= 30}
+          onAdd={(path) => onProject((p) => ({ ...p, audioRegions: [...(p.audioRegions ?? []), { id: crypto.randomUUID(), path, start: p.trim.start, end: p.trim.end || duration, offset: 0, volume: 0.5 }] }))}
+        />
         {(project.audioRegions ?? []).map((r) => {
           const patch = (value: Partial<typeof r>) => onProject((p) => ({ ...p, audioRegions: (p.audioRegions ?? []).map((a) => a.id === r.id ? { ...a, ...value } : a) }))
           return <div key={r.id} className="flex flex-col gap-2 rounded border border-line p-2">

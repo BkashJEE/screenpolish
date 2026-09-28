@@ -22,9 +22,11 @@ jobs:
           node-version: 22
           cache: npm
       # The pacman target shells out to bsdtar, which the Ubuntu runner image
-      # does not install by default.
+      # does not install by default. The X11 headers are for uiohook-napi:
+      # Linux never loads it, but electron-builder still rebuilds it, and
+      # without them the whole Linux package fails to build.
       - if: matrix.name == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools libx11-dev libxrandr-dev libxtst-dev libxt-dev
       # Captions: build whisper-cli and fetch the checksummed English model into
       # vendor/whisper, which the Linux package ships as resources/whisper.
       - if: matrix.name == 'linux'

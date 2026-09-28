@@ -7,7 +7,7 @@ import { playClick, playZoomSound, stopScheduledSounds } from '../lib/click-play
 import { audibleZoomTransitions, zoomTransitions } from '../../shared/zoom-sound'
 import type { Overlay, Project, RecordingEvents, ZoomSegment } from '../../shared/types'
 import { outputSize } from '../../shared/layout'
-import { layoutOverlays, type OverlayFrame } from '../../render/overlays'
+import { layoutOverlays, overlayAlphaAt, type OverlayFrame } from '../../render/overlays'
 import { overlayArgsFor, renderFrame } from '../../render/render-frame'
 import { drawCutTransition, holdFrame } from '../../render/cut-transition'
 import { cutTransitionActive, normalizeCutTransition } from '../../shared/cut-transition'
@@ -167,7 +167,11 @@ export const Preview = memo(function Preview(props: PreviewProps) {
     const output = { width: canvas.width, height: canvas.height }
     frames.current = overlays.length > 0 && videoSize.width > 0 ? layoutOverlays(ctx, overlays, overlayArgsFor(input, output)) : []
     const selected = l.selectedOverlayId ? frames.current.find((f) => f.id === l.selectedOverlayId) : undefined
-    if (selected) drawSelection(ctx, selected, output.width)
+    if (selected) {
+      const overlay = overlays.find((o) => o.id === l.selectedOverlayId)
+      const hidden = !!overlay && overlayAlphaAt(overlay, input.tSec, l.duration) <= 0
+      drawSelection(ctx, selected, output.width, hidden)
+    }
   }, [])
 
   // Canvas backing size follows the output size; a size change clears the canvas so redraw.
@@ -622,7 +626,13 @@ function ExtraAudio({ region, time, playing, rate, master, preservePitch }: { re
 }
 
 /** Thin accent outline plus a square corner handle around the selected overlay. Preview only. */
-function drawSelection(ctx: CanvasRenderingContext2D, f: OverlayFrame, outputWidth: number): void {
+/**
+ * Selection chrome. An overlay is laid out at every moment so it can be
+ * selected and dragged, but it only draws between its start and end: a
+ * selected overlay outside that range showed an empty box with nothing in it
+ * and no reason why. Outside its range the outline is dashed and labelled.
+ */
+function drawSelection(ctx: CanvasRenderingContext2D, f: OverlayFrame, outputWidth: number, hidden = false): void {
   const k = chromeScale(outputWidth)
   const w = f.width
   const h = f.height
@@ -632,10 +642,25 @@ function drawSelection(ctx: CanvasRenderingContext2D, f: OverlayFrame, outputWid
   ctx.globalAlpha = 1
   ctx.lineWidth = 3 * k
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)'
+  if (hidden) ctx.setLineDash([9 * k, 6 * k])
   ctx.strokeRect(-w / 2, -h / 2, w, h)
   ctx.lineWidth = 1.5 * k
-  ctx.strokeStyle = '#7c8cff'
+  ctx.strokeStyle = hidden ? '#e3b25c' : '#7c8cff'
   ctx.strokeRect(-w / 2, -h / 2, w, h)
+  if (hidden) {
+    ctx.setLineDash([])
+    const label = 'Not shown at this moment'
+    ctx.font = `600 ${13 * k}px "Instrument Sans", system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'bottom'
+    const pad = 5 * k
+    const width = ctx.measureText(label).width + pad * 2
+    const top = -h / 2 - 22 * k
+    ctx.fillStyle = 'rgba(12, 14, 18, 0.85)'
+    ctx.fillRect(-width / 2, top, width, 19 * k)
+    ctx.fillStyle = '#e3b25c'
+    ctx.fillText(label, 0, top + 15 * k)
+  }
   const s = HANDLE_PX * k
   const hp = handlePoint({ cx: 0, cy: 0, width: w, height: h, rotation: 0 })
   ctx.fillStyle = '#ffffff'

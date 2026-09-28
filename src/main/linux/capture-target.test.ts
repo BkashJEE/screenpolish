@@ -234,3 +234,31 @@ describe('same-sized windows', () => {
     expect(asked).toBe(false)
   })
 })
+
+describe('a window pick the portal answered with the whole screen', () => {
+  // The share dialog never says what it handed over. Picking a window in the
+  // panel and then sharing the screen produced a monitor-sized stream that
+  // could not be tied to the window, and the take lost its whole input log:
+  // no pointer, no clicks, no auto zoom (2026-09-24_22-23-21).
+  const stream = { width: 3440, height: 1440 }
+  const windowAsk = { x: 125, y: 125, width: 3440, height: 1440, scale: 1.25 }
+  const picked: HyprClient = { ...client([100, 100], [2752, 1152]), address: 'picked' }
+
+  it('keeps the input log by placing the stream on the screen it plainly covers', async () => {
+    const result = await resolveCaptureTarget(stream, windowAsk, {}, { monitors, clients: [picked] }, 'picked')
+    expect(result.kind).not.toBe('unknown')
+    expect(result.region).toMatchObject({ width: 3440, height: 1440 })
+  })
+
+  it('does the same when the window is smaller than what the dialog shared', async () => {
+    const small: HyprClient = { ...client([100, 100], [1400, 900]), address: 'small' }
+    const result = await resolveCaptureTarget(stream, { x: 0, y: 0, width: 1750, height: 1125, scale: 1.25 }, {}, { monitors, clients: [small] }, 'small')
+    expect(result.kind).toBe('monitor')
+  })
+
+  it('gives up only when the stream matches no window, monitor or asked-for region', async () => {
+    const odd = { x: 0, y: 0, width: 777, height: 555, scale: 1 }
+    const result = await resolveCaptureTarget({ width: 1234, height: 987 }, odd, {}, { monitors, clients: [picked] }, 'picked')
+    expect(result.kind).toBe('unknown')
+  })
+})

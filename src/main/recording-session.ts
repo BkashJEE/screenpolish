@@ -25,6 +25,7 @@ import type { CaptureRegion, RecordingEvents } from '@shared/types'
 import { hideSystemCursor, restoreSystemCursor, isCursorHidden } from './win/cursor-manager'
 import { getCursorMode, getCursorSkin } from './settings'
 import { InputLogger } from './input-logger'
+import { TIMED_OUT, withTimeout, withTimeoutOrThrow } from './with-timeout'
 import { recordingsRoot } from './media-protocol'
 import { formatFolderName } from './naming'
 import { foregroundWindowTitle } from './win/foreground-title'
@@ -51,27 +52,14 @@ export const FILE_FOR_KEY: Record<CaptureFileKey, string> = {
 const CAPTURE_KEYS = new Set<string>(Object.keys(FILE_FOR_KEY))
 
 export const FINALIZE_TIMEOUT_MS = 10_000
+/** Longest any single finalizing step may take before the take is saved without it. */
+export const FINALIZE_STEP_TIMEOUT_MS = 20_000
 // Wayland's portal picker is interactive and may sit open while the user finds
 // the right window. Do not misreport a slow selection as a capture failure.
 export const START_TIMEOUT_MS = 120_000
 export const LOAD_TIMEOUT_MS = 20_000
 export const COUNTDOWN_SECONDS = 3
 
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${message} within ${ms / 1000} s`)), ms)
-    promise.then(
-      (v) => {
-        clearTimeout(timer)
-        resolve(v)
-      },
-      (e) => {
-        clearTimeout(timer)
-        reject(e)
-      }
-    )
-  })
-}
 
 /** Short human label for the HUD: which display, window or region is being captured. */
 export function describeSource(request: StartRecordingRequest, display: Display, source: { name: string } | null, region: CaptureRegion): string {
@@ -258,7 +246,7 @@ export class RecordingSession {
       })
       win.webContents.on('did-fail-load', (_e, code, desc, url) => console.error(`[recording] capture host failed to load ${url}: ${code} ${desc}`))
       win.webContents.on('did-finish-load', () => console.log('[recording] capture host loaded'))
-      const loaded = withTimeout(loadPage(win, 'capture'), LOAD_TIMEOUT_MS, 'Capture host page did not load')
+      const loaded = withTimeoutOrThrow(loadPage(win, 'capture'), LOAD_TIMEOUT_MS, 'Capture host page did not load')
 
       await this.countdown(rec)
       await loaded
@@ -356,9 +344,15 @@ export class RecordingSession {
           trackPointer = false
           inputNote = 'ScreenPolish could not tell which window was shared, so the pointer and clicks were not recorded and auto zoom is unavailable for this take.'
           this.onWarning?.('ScreenPolish could not tell which window was shared, so auto zoom is off for this take. This happens when another open window is exactly the same size; resize one of them slightly, or record the whole screen.')
-        } else if (target.kind !== 'expected') {
-          inputRegion = target.region
-          rec.region = target.region
+        } else {
+          if (request.source.kind === 'window' && target.kind !== 'window') {
+            // The dialog decides what it shares; the panel's pick is only a request.
+            this.onWarning?.('The share dialog handed over more than the window you picked, so this take covers that area and auto zoom follows the pointer across it.')
+          }
+          if (target.kind !== 'expected') {
+            inputRegion = target.region
+            rec.region = target.region
+          }
         }
         console.log(`[recording] portal target: ${target.kind} ${JSON.stringify(target.region)}`)
       }
@@ -600,20 +594,48 @@ export class RecordingSession {
     if (this.active === rec) this.active = null
   }
 
+  /**
+   * Wait for one finalizing step, and give up on it rather than on the take.
+   *
+   * Each of these waits on something outside this process. When one never
+   * settles the whole session used to stay in `finalizing` for good: the tray
+   * said "finishing…", recording was disabled because the app was not idle,
+   * stopping was disabled because it was already stopping, and quitting waited
+   * on the same promise — the app could only be killed. A step that hangs now
+   * costs the take that step, and nothing else.
+   */
+  private async step<T>(work: Promise<T> | undefined, what: string): Promise<T | undefined> {
+    if (!work) return undefined
+    const settled = await withTimeout(work, FINALIZE_STEP_TIMEOUT_MS)
+    if (settled === TIMED_OUT) {
+      console.warn(`[recording] ${what} did not finish in ${FINALIZE_STEP_TIMEOUT_MS} ms; saving the take without it`)
+      this.onWarning?.(`${what} did not finish in time; the recording was saved without that step.`)
+      return undefined
+    }
+    return settled
+  }
+
   private async finish(rec: Active): Promise<void> {
     this.setState({ status: 'finalizing', folder: rec.folder })
     const audioStopped = rec.systemAudio?.stop().catch((error) => this.onWarning?.(`System audio finalization: ${String(error)}`))
     const nativeStopped = rec.native?.gsr.stop()
     let events = this.logger.stop()
-    if (rec.window && !rec.window.isDestroyed() && !rec.hostGone) {
-      rec.window.webContents.send(CAPTURE.stop)
-      await this.waitForFinalized(rec, FINALIZE_TIMEOUT_MS)
-    }
-    this.closeHandles(rec)
-    await audioStopped
-    if (rec.native) {
-      await nativeStopped
-      events = await this.finishNative(rec, rec.native, events)
+    // Everything from here to the sidecars is best effort: whatever happens,
+    // the files that exist are kept and the session returns to idle.
+    try {
+      if (rec.window && !rec.window.isDestroyed() && !rec.hostGone) {
+        rec.window.webContents.send(CAPTURE.stop)
+        await this.waitForFinalized(rec, FINALIZE_TIMEOUT_MS)
+      }
+      this.closeHandles(rec)
+      await this.step(audioStopped, 'The system audio track')
+      if (rec.native) {
+        await this.step(nativeStopped, 'The recorder')
+        events = (await this.step(this.finishNative(rec, rec.native, events), 'Converting the take')) ?? events
+      }
+    } catch (err) {
+      console.error('[recording] finalizing failed', err)
+      this.onWarning?.(`Finishing the recording failed (${String(err)}); the take was kept as it is.`)
     }
     const screenFile = path.join(rec.folder, FILE_FOR_KEY.screen)
     const hasVideo = fs.existsSync(screenFile) && fs.statSync(screenFile).size > 0
@@ -634,8 +656,12 @@ export class RecordingSession {
         console.warn('[recording] could not remove empty folder', err)
       }
     }
-    this.teardown(rec)
-    this.setState({ status: 'idle' })
+    try {
+      this.teardown(rec)
+    } finally {
+      // The last line of defence: idle again, whatever went wrong above.
+      this.setState({ status: 'idle' })
+    }
     if (hasVideo) this.onFinished?.(rec.folder)
     else this.onError?.('Recording stopped before any video was written')
   }

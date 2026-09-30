@@ -1,5 +1,6 @@
 import { memo, useEffect, useState, type ReactNode } from 'react'
 import type { MusicTrack } from '../../shared/ipc'
+import { BUNDLED_MUSIC } from '../../shared/bundled-music'
 import { CLICK_SOUND_STYLES, DEFAULT_CLICK_SOUND, type ClickSoundStyle } from '../../shared/click-sound'
 import { playClick, playZoomSound } from '../lib/click-player'
 import { DEFAULT_ZOOM_SOUND, type ZoomSoundStyle } from '../../shared/zoom-sound'
@@ -104,9 +105,24 @@ function MusicShelf({ disabled, onAdd }: { disabled: boolean; onAdd: (path: stri
       </div>
       {open && (
         <div className="flex flex-col gap-1 rounded border border-line p-2">
+          {/* What ships with the app, written for it and free of any licence. */}
+          {BUNDLED_MUSIC.map((track) => (
+            <button
+              key={track.path}
+              type="button"
+              disabled={disabled}
+              title={`${track.note} — included with ScreenPolish`}
+              className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-[11px] hover:bg-bg-4 disabled:opacity-50"
+              onClick={() => onAdd(track.path)}
+            >
+              <span className="min-w-0 truncate">{track.name}</span>
+              <span className="shrink-0 text-fg-dim">{track.note}</span>
+            </button>
+          ))}
+          <div className="mt-1 border-t border-line pt-1 text-[10px] uppercase tracking-wide text-fg-dim">Your music folder</div>
           {tracks.length === 0 ? (
             <span className="text-[11px] text-fg-dim">
-              No tracks yet. Put audio files in the music folder and they appear here.
+              Empty. Put audio files in the music folder and they appear here.
             </span>
           ) : (
             tracks.map((track) => (

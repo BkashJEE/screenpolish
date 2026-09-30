@@ -87,6 +87,7 @@ app.
 | Speed | 0.25× to 4×, with pitch preserved |
 | Crop | Draw the crop on the frame; the export follows it |
 | Volume | Microphone, system and master levels, with music and voiceover regions |
+| Music | Six tracks ship with the app, and `~/Music/ScreenPolish` holds your own |
 | Captions | Transcribed locally with whisper.cpp and burned in at export |
 | Undo and redo | Across every edit, with drags batched sensibly |
 | MP4 and GIF | Up to 2160p at 60 fps, in 16:9, 9:16, 1:1 or the source shape |

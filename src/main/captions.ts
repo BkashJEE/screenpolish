@@ -2,8 +2,8 @@
  * Local transcription for captions: whisper.cpp with the English base model.
  *
  * Both ship with the app (vendor/whisper, fetched and checksummed by
- * scripts/fetch-whisper.sh, packaged as resources/whisper). Nothing is sent
- * anywhere: the audio is converted to 16 kHz mono WAV with the bundled ffmpeg,
+ * scripts/fetch-whisper.sh, packaged as resources/whisper on Linux, Windows
+ * and macOS). Nothing is sent anywhere: the audio is converted to 16 kHz mono WAV with the bundled ffmpeg,
  * handed to whisper-cli, and its JSON is read back as caption cues.
  */
 
@@ -11,26 +11,49 @@ import { spawn } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { CAPTION_LINE_CHARS, cuesFromWhisperJson, type CaptionCue } from '../shared/captions'
+import { CAPTION_LINE_CHARS, CAPTIONS_NOT_INSTALLED, cuesFromWhisperJson, type CaptionCue, type CaptionsStatus } from '../shared/captions'
 
 export const WHISPER_MODEL_FILE = 'ggml-base.en.bin'
 
 export interface WhisperFiles {
   bin: string
   model: string
+  /** True in an installed app, where a missing file is the build's fault, not the developer's. */
+  packaged?: boolean
 }
 
-/** Where the bundled whisper-cli and model live, packaged or in a dev checkout. */
+/** The engine's file name: whisper.cpp's prebuilt Windows release, or the binary built by fetch-whisper.sh. */
+export function whisperBinaryName(platform: NodeJS.Platform): string {
+  return platform === 'win32' ? 'whisper-cli.exe' : 'whisper-cli'
+}
+
+/**
+ * Where the bundled whisper-cli and model live, packaged or in a dev checkout.
+ * The same resources/whisper directory on every platform; only the binary's
+ * name differs.
+ */
 export function whisperFiles(opts: { isPackaged: boolean; resourcesPath: string; appPath: string; platform: NodeJS.Platform }): WhisperFiles {
   const dir = opts.isPackaged ? path.join(opts.resourcesPath, 'whisper') : path.join(opts.appPath, 'vendor', 'whisper')
-  return { bin: path.join(dir, opts.platform === 'win32' ? 'whisper-cli.exe' : 'whisper-cli'), model: path.join(dir, WHISPER_MODEL_FILE) }
+  return { bin: path.join(dir, whisperBinaryName(opts.platform)), model: path.join(dir, WHISPER_MODEL_FILE), packaged: opts.isPackaged }
 }
 
-/** Why captions cannot run, or null when both files are in place. */
+/**
+ * Why captions cannot run, or null when both files are in place. In a
+ * packaged app the message says the build lacks the feature; in a checkout it
+ * says how to fetch it.
+ */
 export function whisperMissing(files: WhisperFiles, exists: (p: string) => boolean = fs.existsSync): string | null {
-  if (!exists(files.bin)) return `The speech engine is missing (${files.bin}). Run scripts/fetch-whisper.sh and rebuild.`
-  if (!exists(files.model)) return `The speech model is missing (${files.model}). Run scripts/fetch-whisper.sh and rebuild.`
-  return null
+  const missing = !exists(files.bin) ? 'engine' : !exists(files.model) ? 'model' : null
+  if (!missing) return null
+  const file = missing === 'engine' ? files.bin : files.model
+  if (files.packaged) return `${CAPTIONS_NOT_INSTALLED} The speech ${missing} (${path.basename(file)}) is not in ${path.dirname(file)}.`
+  return `The speech ${missing} is missing (${file}). Run scripts/fetch-whisper.sh and rebuild.`
+}
+
+/** Checked when the Captions panel opens, so a build without the engine says so before anyone presses Transcribe. */
+export function captionsStatus(files: WhisperFiles, exists: (p: string) => boolean = fs.existsSync): CaptionsStatus {
+  const reason = whisperMissing(files, exists)
+  return { installed: reason === null, reason }
 }
 
 /** Leave a couple of cores for the editor; whisper gains little past eight. */

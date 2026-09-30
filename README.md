@@ -35,7 +35,7 @@ all, and draws its own instead.
   optional click sounds, and a fade while the pointer rests.
 - **Edits without an editor**: trim, split, drop clips, smooth over the cuts,
   remove silences, change speed, crop.
-- **Captions offline**, with a bundled whisper.cpp on Linux — nothing uploaded.
+- **Captions offline**, with a bundled whisper.cpp — nothing uploaded.
 - **Annotates**: blur or pixelate, arrows, highlight boxes, text and images.
 - **Exports** MP4 or GIF up to 2160p at 60 fps, in 16:9, 9:16, 1:1 or the
   source shape.
@@ -49,7 +49,7 @@ all, and draws its own instead.
 | Capture without the system cursor | yes, native | no | no |
 | Drawn pointer replaces the real one | yes | overlay | captured cursor stays |
 | Click and pointer log | evdev, mouse only | uiohook | uiohook |
-| Offline captions | bundled | not yet | not yet |
+| Offline captions | bundled | bundled, untested | bundled, untested |
 | Everything else | yes | yes | yes |
 
 Where the system cursor is captured, the drawn pointer styles have nothing to
@@ -99,7 +99,7 @@ xattr -dr com.apple.quarantine /Applications/ScreenPolish.app
 
 ```bash
 npm ci
-npm run fetch:whisper     # captions engine and model, into vendor/whisper (Linux)
+npm run fetch:whisper     # captions engine and model, into vendor/whisper (Git Bash on Windows)
 npm run dev               # run it
 npx electron-builder --linux pacman AppImage --publish never
 npx electron-builder --win nsis --publish never

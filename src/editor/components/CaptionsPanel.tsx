@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Project } from '../../shared/types'
-import { CAPTION_SIZE_RANGE, DEFAULT_CAPTIONS, editCue, normalizeCaptions, type CaptionPosition, type CaptionSettings } from '../../shared/captions'
+import { CAPTION_SIZE_RANGE, CAPTIONS_NOT_INSTALLED, DEFAULT_CAPTIONS, editCue, normalizeCaptions, type CaptionPosition, type CaptionSettings, type CaptionsStatus } from '../../shared/captions'
 import { formatTime } from '../lib/time'
 import { Spinner } from './icons'
 import { Button, Chip, Row, Segmented, SliderField, Toggle } from './ui'
@@ -26,12 +26,36 @@ export function CaptionsPanel({
   const [source, setSource] = useState<Source>(sources[0] ?? 'mic')
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // null until main answers; a build without the engine says so here rather
+  // than failing when Transcribe is pressed.
+  const [status, setStatus] = useState<CaptionsStatus | null>(null)
   const busy = progress !== null
 
   useEffect(() => (busy ? window.polish.onTranscribeProgress((f) => setProgress(f)) : undefined), [busy])
+  useEffect(() => {
+    let live = true
+    window.polish.captionsStatus().then(
+      (s) => live && setStatus(s),
+      // An older bridge without the call: let transcribe report the problem.
+      () => live && setStatus({ installed: true, reason: null })
+    )
+    return () => {
+      live = false
+    }
+  }, [])
 
   const patch = (update: Partial<CaptionSettings>) =>
     onProject((p) => ({ ...p, captions: { ...normalizeCaptions(p.captions), ...update } }))
+
+  if (status && !status.installed) {
+    return (
+      <div className="flex flex-col gap-1.5" role="status">
+        <p className="text-[11px] text-fg">{CAPTIONS_NOT_INSTALLED}</p>
+        {status.reason && <p className="text-[11px] text-fg-dim">{status.reason.replace(CAPTIONS_NOT_INSTALLED, '').trim()}</p>}
+        {captions.cues.length > 0 && <p className="text-[11px] text-fg-dim">The {captions.cues.length} lines already in this project still export.</p>}
+      </div>
+    )
+  }
 
   if (sources.length === 0) {
     return <p className="text-[11px] text-fg-dim">This recording has no audio track, so there is nothing to transcribe.</p>
@@ -69,7 +93,7 @@ export function CaptionsPanel({
         />
       )}
       <div className="flex items-center gap-2">
-        <Button size="sm" variant={captions.cues.length ? 'default' : 'primary'} disabled={busy} icon={busy ? <Spinner size={12} /> : undefined} onClick={() => void run()}>
+        <Button size="sm" variant={captions.cues.length ? 'default' : 'primary'} disabled={busy || status === null} icon={busy ? <Spinner size={12} /> : undefined} onClick={() => void run()}>
           {busy ? `Transcribing ${Math.round((progress ?? 0) * 100)}%` : captions.cues.length ? 'Transcribe again' : 'Transcribe'}
         </Button>
         {captions.cues.length > 0 && !busy && <span className="text-[11px] text-fg-dim">replaces your edits</span>}

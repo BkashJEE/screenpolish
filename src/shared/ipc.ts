@@ -2,7 +2,7 @@
 // constants so a typo fails typecheck instead of silently never firing.
 
 import type { CaptureRegion, Project, RecordingEvents, RecordingFiles, RecordingSummary } from './types'
-import type { CaptionCue } from './captions'
+import type { CaptionCue, CaptionsStatus } from './captions'
 
 
 // ---------------------------------------------------------------------------
@@ -165,6 +165,7 @@ export const EDITOR = {
   listSources: 'polish:sources:list',
   windowPreviews: 'polish:sources:previews',
   captureCapabilities: 'polish:capture:capabilities',
+  captionsStatus: 'polish:captions:status',
   transcribe: 'polish:captions:transcribe',
   transcribeProgress: 'polish:captions:progress',
   listAudioDevices: 'polish:devices:audio',
@@ -314,6 +315,8 @@ export interface EditorBridge {
   windowPreviews: (ids: string[]) => Promise<Record<string, string>>
   /** cursorFree: takes are recorded without the system cursor (gpu-screen-recorder on Linux), so pointer styles show. */
   captureCapabilities: () => Promise<{ cursorFree: boolean }>
+  /** Whether the bundled speech engine and model are present on this build; `reason` says what is missing. */
+  captionsStatus: () => Promise<CaptionsStatus>
   /** Transcribe a recording's mic or system audio locally; resolves with caption cues. */
   transcribe: (folder: string, source: 'mic' | 'system') => Promise<CaptionCue[]>
   /** 0..1 while transcribe runs. Returns an unsubscribe. */

@@ -33,10 +33,13 @@ jobs:
       # without them the whole Linux package fails to build.
       - if: matrix.name == 'linux'
         run: sudo apt-get update && sudo apt-get install -y libarchive-tools libx11-dev libxrandr-dev libxtst-dev libxt-dev
-      # Captions: build whisper-cli and fetch the checksummed English model into
-      # vendor/whisper, which the Linux package ships as resources/whisper.
-      - if: matrix.name == 'linux'
-        run: bash scripts/fetch-whisper.sh
+      # Captions: whisper-cli and the checksummed English model into
+      # vendor/whisper, which every package ships as resources/whisper. Linux
+      # and macOS build it from the pinned source tarball; Windows takes
+      # whisper.cpp's prebuilt zip of the same commit. `shell: bash` is Git Bash
+      # on the Windows runner, which has curl, sha256sum and unzip.
+      - run: bash scripts/fetch-whisper.sh
+        shell: bash
       - run: npm ci
       - run: npm test
       - run: npx electron-vite build

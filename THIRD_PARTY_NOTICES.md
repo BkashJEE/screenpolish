@@ -10,8 +10,8 @@ ScreenPolish itself is not yet released under an open-source licence
 | Component | Version | Licence | Where it ships | Licence text |
 | --- | --- | --- | --- | --- |
 | [FFmpeg](https://ffmpeg.org), via [ffmpeg-static](https://github.com/eugeneware/ffmpeg-static) | ffmpeg-static 5.3.0 | GPL-3.0-or-later | `resources/ffmpeg` (`ffmpeg.exe` on Windows) | `resources/ffmpeg.LICENSE` |
-| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) `whisper-cli` | v1.9.3 (371b5a7) | MIT | `resources/whisper/` (Linux) | `resources/whisper/LICENSE` |
-| Whisper `ggml-base.en.bin` model ([OpenAI Whisper](https://github.com/openai/whisper) weights converted by whisper.cpp) | base.en | MIT, Copyright (c) 2022 OpenAI | `resources/whisper/` (Linux) | <https://github.com/openai/whisper/blob/main/LICENSE> |
+| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) `whisper-cli` | v1.9.3 (371b5a7); on Windows the prebuilt `whisper-bin-x64.zip` from release b4938 (same commit) | MIT | `resources/whisper/` | `resources/whisper/LICENSE` |
+| Whisper `ggml-base.en.bin` model ([OpenAI Whisper](https://github.com/openai/whisper) weights converted by whisper.cpp) | base.en | MIT, Copyright (c) 2022 OpenAI | `resources/whisper/` | <https://github.com/openai/whisper/blob/main/LICENSE> |
 | [Electron](https://www.electronjs.org) | 40.10.2 | MIT, plus Chromium's licences | the application itself | `LICENSE.electron.txt`, `LICENSES.chromium.html` beside the executable |
 
 **FFmpeg source.** The binaries are unmodified static builds that ffmpeg-static

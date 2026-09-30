@@ -28,6 +28,14 @@ win:
       to: THIRD_PARTY_NOTICES.md
     - from: node_modules/ffmpeg-static/ffmpeg.exe
       to: ffmpeg.exe
+    # Captions: whisper.cpp's prebuilt whisper-cli.exe with the DLLs it loads
+    # (whisper, ggml, ggml-base, the ggml-cpu-* variants), and the English base
+    # model, from scripts/fetch-whisper.sh.
+    - from: vendor/whisper
+      to: whisper
+      filter: [whisper-cli.exe, whisper.dll, 'ggml*.dll', ggml-base.en.bin]
+    - from: resources/licenses/whisper.cpp-LICENSE.txt
+      to: whisper/LICENSE
 mac:
   target: [dmg, zip]
   icon: resources/icon.png
@@ -45,6 +53,13 @@ mac:
       to: THIRD_PARTY_NOTICES.md
     - from: node_modules/ffmpeg-static/ffmpeg
       to: ffmpeg
+    # Captions: a universal (arm64 + x86_64) whisper-cli built with Metal and
+    # the English base model, from scripts/fetch-whisper.sh.
+    - from: vendor/whisper
+      to: whisper
+      filter: [whisper-cli, ggml-base.en.bin]
+    - from: resources/licenses/whisper.cpp-LICENSE.txt
+      to: whisper/LICENSE
 linux:
   # pacman for Arch and Omarchy; AppImage so every other distribution has
   # something to run without packaging work.

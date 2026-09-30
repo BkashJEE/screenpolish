@@ -27,7 +27,7 @@ import { listSources, listsThroughPortal, windowPreviews } from './sources'
 import { findGsr } from './linux/gsr'
 import { THUMB_RELATIVE } from './thumbnail'
 import { cursorBakedForPlayback } from './capture-cursor'
-import { transcribe, type WhisperFiles } from './captions'
+import { captionsStatus, transcribe, type WhisperFiles } from './captions'
 import { validateShortcuts, type RecordingShortcuts } from '@shared/shortcuts'
 
 
@@ -229,6 +229,7 @@ export function registerEditorIpc(deps: EditorIpcDeps): void {
   })
 
   ipcMain.handle(EDITOR.exportBegin, (_e, request: ExportBeginRequest) => exportSink.begin(request))
+  ipcMain.handle(EDITOR.captionsStatus, () => captionsStatus(deps.whisper()))
   ipcMain.handle(EDITOR.transcribe, async (event, folder: string, source: 'mic' | 'system') => {
     const inside = assertInsideRoot(deps.root(), folder)
     if (source !== 'mic' && source !== 'system') throw new Error(`Unknown audio source: ${String(source)}`)

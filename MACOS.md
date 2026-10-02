@@ -23,7 +23,9 @@ promise. No minimum macOS version or supported-device matrix has been verified.
 - System audio is not supported by the current macOS path.
 - The system cursor remains baked into the recording; Windows cursor hiding
   and the Omarchy native cursor-free path do not apply.
-- The bundled captions engine is Linux-only.
+- The captions engine is built in CI from the pinned whisper.cpp source as a
+  universal binary with Metal on (`scripts/fetch-whisper.sh`). It has not been
+  run on a Mac; the Captions panel says when it is missing.
 - Input tracking, automatic click zoom, webcam, microphone, playback and export
   still require actual Mac tests, even where shared implementation exists.
 

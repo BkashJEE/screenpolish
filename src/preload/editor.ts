@@ -40,6 +40,7 @@ const bridge: EditorBridge = {
   listSources: () => ipcRenderer.invoke(EDITOR.listSources),
   windowPreviews: (ids) => ipcRenderer.invoke(EDITOR.windowPreviews, ids),
   captureCapabilities: () => ipcRenderer.invoke(EDITOR.captureCapabilities),
+  captionsStatus: () => ipcRenderer.invoke(EDITOR.captionsStatus),
   transcribe: (folder, source) => ipcRenderer.invoke(EDITOR.transcribe, folder, source),
   onTranscribeProgress: (handler) => {
     const listener = (_event: IpcRendererEvent, fraction: number): void => handler(fraction)

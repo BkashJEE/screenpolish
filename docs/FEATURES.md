@@ -106,7 +106,7 @@ app.
 | Capture without the system cursor | yes, native | no | no |
 | Drawn pointer replaces the real one | yes | overlay | captured cursor stays |
 | Click and pointer log | evdev, mouse only | uiohook | uiohook |
-| Offline captions | bundled | not yet | not yet |
+| Offline captions | bundled | bundled, untested | bundled, untested |
 | Recording, editing, effects, export | yes | yes | yes |
 
 ## Limits worth knowing
@@ -121,8 +121,8 @@ app.
   compositor and buttons from one evdev device. On Windows and macOS input is
   read through uiohook, which sees more than the mouse; only pointer and button
   events are recorded.
-- **Captions are English** with the bundled base model, and are bundled on
-  Linux only.
+- **Captions are English** with the bundled base model. A build without the
+  engine says so in the Captions panel instead of failing at transcription.
 - **Encoding is on the CPU** where the GPU encoder is unavailable.
 - **Installers are unsigned.** SmartScreen warns on Windows; macOS quarantines
   the app until `xattr -dr com.apple.quarantine` clears it.

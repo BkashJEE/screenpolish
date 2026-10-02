@@ -7,6 +7,17 @@
  * model; nothing leaves the machine.
  */
 
+/** Shown by the Captions panel, and the start of every packaged-build reason from main/captions.ts. */
+export const CAPTIONS_NOT_INSTALLED = 'Offline captions are not installed on this build.'
+
+/** Whether this build carries the speech engine and model; from main/captions.ts, shown by the Captions panel. */
+export interface CaptionsStatus {
+  /** Engine and model are both present, so Transcribe can run. */
+  installed: boolean
+  /** What is missing, fit to show; null when installed. */
+  reason: string | null
+}
+
 export interface CaptionCue {
   id: string
   start: number

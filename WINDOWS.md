@@ -42,8 +42,11 @@ an installer has been published or automatically delivered to your device.
 
 ## Known limitations
 
-- Windows Whisper engine packaging is pending; do not advertise local captions
-  as verified on Windows.
+- Offline captions ship whisper.cpp's own prebuilt `whisper-cli.exe` (release
+  b4938, the same commit as the v1.9.3 tag Linux builds from) with its DLLs
+  under `resources/whisper`. It needs the Microsoft Visual C++ 2015-2022
+  runtime, which most machines already have. The Captions panel says when the
+  engine is missing. Not yet verified on Windows hardware.
 - Hardware encoding depends on the device, driver and codec availability.
 - The latest shared changes have passed CI, not a new Windows hardware test.
 - Do not assume the presence of a build means auto-update is working.

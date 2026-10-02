@@ -9,6 +9,7 @@ files:
   - resources/icon-256.png
   - resources/tray.png
   - resources/backgrounds/**
+  - resources/music/**
   - resources/fonts/**
   - resources/segmenter/**
 asarUnpack:

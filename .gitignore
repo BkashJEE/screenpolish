@@ -9,3 +9,4 @@ spike/*.log
 *.tsbuildinfo
 spike/
 vendor/
+__pycache__/

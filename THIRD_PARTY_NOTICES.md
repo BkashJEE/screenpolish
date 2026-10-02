@@ -40,6 +40,16 @@ program and does not link to it.
 | Instrument Sans, JetBrains Mono, Courier Prime | Their upstream projects | SIL OFL 1.1, beside each font in `resources/fonts/` |
 | Font Awesome staff-snake glyph (U+E90A inside `Omarchy.ttf`, never drawn) | Font Awesome | CC BY 4.0 |
 
+## Music
+
+The tracks in `resources/music/` were written for this project by
+`scripts/lofi-tracks.py`: every sound is computed, nothing is sampled, and no
+third party holds rights in them. They carry the project's own licence, and
+using a recording made with them owes nobody anything.
+
+Run the script to rebuild them, or to make your own — each track is
+deterministic from its seed, so a rebuild reproduces the same audio.
+
 ## Names and marks
 
 Omarchy is a mark of its authors. MIT and OFL licences cover code and artwork

@@ -129,7 +129,18 @@ export const SOLID_PRESETS: SolidPreset[] = [
   { name: 'Navy', color: '#203a5f' },
   { name: 'Plum', color: '#4d365f' },
   { name: 'Clay', color: '#765044' },
-  { name: 'Forest', color: '#29483e' }
+  { name: 'Forest', color: '#29483e' },
+  // The recording is the subject; most of these sit back far enough to let it be.
+  { name: 'Obsidian', color: '#0b0e14' },
+  { name: 'Charcoal', color: '#1f2430' },
+  { name: 'Pewter', color: '#3c4250' },
+  { name: 'Denim', color: '#2f4a6d' },
+  { name: 'Teal', color: '#1f4b4b' },
+  { name: 'Olive', color: '#4a5340' },
+  { name: 'Berry', color: '#5a2a4a' },
+  { name: 'Rust', color: '#7a3f2b' },
+  { name: 'Sand', color: '#d8cfc0' },
+  { name: 'Linen', color: '#f2f0eb' }
 ]
 
 export const GRADIENT_PRESETS: GradientPreset[] = [
@@ -142,7 +153,23 @@ export const GRADIENT_PRESETS: GradientPreset[] = [
   { name: 'Slate', colors: ['#3a4152', '#1c1f27'], angle: 160 },
   { name: 'Graphite', colors: ['#2b2b2b', '#0d0d0d'], angle: 180 },
   { name: 'Snow', colors: ['#ffffff', '#dfe4ee'], angle: 160 },
-  { name: 'Lilac', colors: ['#a18cd1', '#fbc2eb'], angle: 120 }
+  { name: 'Lilac', colors: ['#a18cd1', '#fbc2eb'], angle: 120 },
+  // Deeper pairs, for when the take itself is bright and needs somewhere to sit.
+  { name: 'Dusk', colors: ['#2b5876', '#4e4376'], angle: 150 },
+  { name: 'Nightfall', colors: ['#141e30', '#243b55'], angle: 165 },
+  { name: 'Indigo', colors: ['#0f2027', '#2c5364'], angle: 160 },
+  { name: 'Carbon', colors: ['#232526', '#414345'], angle: 160 },
+  { name: 'Steel', colors: ['#485563', '#29323c'], angle: 170 },
+  { name: 'Cocoa', colors: ['#3e2723', '#6d4c41'], angle: 150 },
+  { name: 'Aurora', colors: ['#1f4037', '#99f2c8'], angle: 140 },
+  { name: 'Moss', colors: ['#134e5e', '#71b280'], angle: 140 },
+  { name: 'Tide', colors: ['#2193b0', '#6dd5ed'], angle: 150 },
+  { name: 'Violet', colors: ['#654ea3', '#eaafc8'], angle: 135 },
+  { name: 'Copper', colors: ['#603813', '#b29f94'], angle: 135 },
+  // Light ends, for dark UI captures.
+  { name: 'Linen', colors: ['#f5f7fa', '#c3cfe2'], angle: 150 },
+  { name: 'Peach', colors: ['#ffecd2', '#fcb69f'], angle: 120 },
+  { name: 'Blush', colors: ['#ffdde1', '#ee9ca7'], angle: 130 }
 ]
 
 /** Which preset (if any) matches the current colours and angle. */
@@ -181,9 +208,21 @@ export interface BundledBackground {
   path: string
 }
 
-/** Pack themes first, then the Omarchy theme every build ships. */
+/**
+ * Pack themes first, then the Omarchy theme every build ships, then the drawn
+ * set from scripts/backgrounds.py — meshes and washes a two-colour gradient
+ * cannot reach, computed rather than licensed so they are safe to redistribute.
+ */
 export const BUNDLED_BACKGROUNDS: BundledBackground[] = [
   ...BRAND_THEMES.map((t) => ({ id: t.id, name: t.name, path: t.path })),
+  { id: 'aurora', name: 'Aurora', path: 'bundled:backgrounds/aurora.png' },
+  { id: 'violet-haze', name: 'Violet Haze', path: 'bundled:backgrounds/violet-haze.png' },
+  { id: 'dawn', name: 'Dawn', path: 'bundled:backgrounds/dawn.png' },
+  { id: 'ember', name: 'Ember', path: 'bundled:backgrounds/ember.png' },
+  { id: 'slate-mesh', name: 'Slate Mesh', path: 'bundled:backgrounds/slate-mesh.png' },
+  { id: 'spotlight', name: 'Spotlight', path: 'bundled:backgrounds/spotlight.png' },
+  { id: 'grid', name: 'Grid', path: 'bundled:backgrounds/grid.png' },
+  { id: 'daylight', name: 'Daylight', path: 'bundled:backgrounds/daylight.png' },
   { id: 'omarchy', name: 'Omarchy', path: 'bundled:backgrounds/omarchy.png' }
 ]
 

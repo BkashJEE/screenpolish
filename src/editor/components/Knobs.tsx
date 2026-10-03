@@ -174,7 +174,9 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
   const bg = project.background
   // A bundled theme background carries its name as lettering; say which, so it can be switched on or off.
   const theme = bg.kind === 'image' ? BUNDLED_BACKGROUNDS.find((b) => b.path === bg.imagePath) : undefined
-  const themeLettering = theme ? { label: THEME_LETTERING[theme.id] ?? `${theme.name} name` } : null
+  // Only themes that carry a wordmark get the lettering toggle. The drawn
+  // backgrounds are nobody's branding and have no name to write.
+  const themeLettering = theme && THEME_LETTERING[theme.id] ? { label: THEME_LETTERING[theme.id] } : null
   const preset = matchPreset(bg)
   const solidPreset = matchSolidPreset(bg)
   const autoCount = segments.filter((s) => s.source === 'auto').length
@@ -285,7 +287,7 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
               type="button"
               aria-label={`Choose ${b.name} background`}
               aria-pressed={bg.kind === 'image' && bg.imagePath === b.path}
-              onClick={() => set('background', { kind: 'image', imagePath: b.path, lettering: true })}
+              onClick={() => set('background', { kind: 'image', imagePath: b.path, lettering: THEME_LETTERING[b.id] !== undefined })}
               className={cx(
                 'overflow-hidden rounded-[6px] border text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-fg',
                 bg.kind === 'image' && bg.imagePath === b.path ? 'border-fg ring-1 ring-fg' : 'border-line-strong'

@@ -4,13 +4,21 @@ import { BRAND_THEMES } from '../../brand'
 import { BUNDLED_BACKGROUNDS, SOLID_PRESETS, migrateCursorStyle, backgroundCss, imageUrlForPath, matchPreset, matchSolidPreset, normalizeProject, patchGroup, projectEquals } from './project'
 
 describe('bundled background themes', () => {
-  it('ships the pack themes this build has, plus Omarchy, as offline assets with export-safe URLs', () => {
-    // A build without a pack (the public Omarchy edition) ships Omarchy alone.
-    expect(BUNDLED_BACKGROUNDS.map((b) => b.id)).toEqual([...BRAND_THEMES.map((t) => t.id), 'omarchy'])
+  /** Drawn by scripts/backgrounds.py, so every build ships these. */
+  const DRAWN = ['aurora', 'violet-haze', 'dawn', 'ember', 'slate-mesh', 'spotlight', 'grid', 'daylight']
+
+  it('ships the pack themes this build has, plus the drawn set and Omarchy, with export-safe URLs', () => {
+    // A build without a pack (the public Omarchy edition) ships no brand themes.
+    expect(BUNDLED_BACKGROUNDS.map((b) => b.id)).toEqual([...BRAND_THEMES.map((t) => t.id), ...DRAWN, 'omarchy'])
     for (const background of BUNDLED_BACKGROUNDS) {
       const relative = background.path.replace('bundled:', '')
       expect(imageUrlForPath(background.path)).toBe(`polish://asset/${relative}`)
     }
+  })
+
+  it('gives every background its own id and its own file', () => {
+    expect(new Set(BUNDLED_BACKGROUNDS.map((b) => b.id)).size).toBe(BUNDLED_BACKGROUNDS.length)
+    expect(new Set(BUNDLED_BACKGROUNDS.map((b) => b.path)).size).toBe(BUNDLED_BACKGROUNDS.length)
   })
 })
 

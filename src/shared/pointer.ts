@@ -78,6 +78,47 @@ function smoothingFactor(cutoffHz: number, dtSec: number): number {
 }
 
 /**
+ * Running the filter twice halves its cutoff, so each pass is widened by this
+ * much to land back on the cutoff `minCutoffFor` asked for: 1/sqrt(2^(1/2)-1),
+ * the usual correction for applying a first-order filter n=2 times.
+ */
+const FILTFILT_CUTOFF_GAIN = 1.5538
+
+/**
+ * One One Euro pass over `path`, in place. `reverse` walks from the end, which
+ * is what makes the pair of passes zero-phase.
+ */
+function oneEuroPass(path: Array<[number, number, number]>, minCutoff: number, reverse: boolean): void {
+  const n = path.length
+  if (n < 2) return
+  const start = reverse ? n - 1 : 0
+  const step = reverse ? -1 : 1
+  let xHat = path[start][1]
+  let yHat = path[start][2]
+  let dxHat = 0
+  let dyHat = 0
+  for (let k = 1; k < n; k++) {
+    const i = start + step * k
+    const [t, x, y] = path[i]
+    const te = Math.abs(t - path[i - step][0]) / 1000
+    if (te <= 0) {
+      path[i] = [t, xHat, yHat]
+      continue
+    }
+    const aD = smoothingFactor(ONE_EURO_D_CUTOFF, te)
+    const dx = (x - xHat) / te
+    const dy = (y - yHat) / te
+    dxHat += aD * (dx - dxHat)
+    dyHat += aD * (dy - dyHat)
+    const ax = smoothingFactor(minCutoff + ONE_EURO_BETA * Math.abs(dxHat), te)
+    const ay = smoothingFactor(minCutoff + ONE_EURO_BETA * Math.abs(dyHat), te)
+    xHat += ax * (x - xHat)
+    yHat += ay * (y - yHat)
+    path[i] = [t, xHat, yHat]
+  }
+}
+
+/**
  * Resample the pointer log at `fps` from t=0 to the last sample, then run a
  * One Euro filter per axis. `strength` 0 returns the resampled path untouched;
  * 1 smooths heavily while the speed coefficient keeps fast moves tracked.
@@ -107,29 +148,16 @@ export function smoothPointerPath(
   const s = clamp(Number.isFinite(strength) ? strength : 0, 0, 1)
   if (s <= 0 || path.length < 2) return path
 
-  const minCutoff = minCutoffFor(s)
-  let xHat = path[0][1]
-  let yHat = path[0][2]
-  let dxHat = 0
-  let dyHat = 0
-  for (let i = 1; i < path.length; i++) {
-    const [t, x, y] = path[i]
-    const te = (t - path[i - 1][0]) / 1000
-    if (te <= 0) {
-      path[i] = [t, xHat, yHat]
-      continue
-    }
-    const aD = smoothingFactor(ONE_EURO_D_CUTOFF, te)
-    const dx = (x - xHat) / te
-    const dy = (y - yHat) / te
-    dxHat += aD * (dx - dxHat)
-    dyHat += aD * (dy - dyHat)
-    const ax = smoothingFactor(minCutoff + ONE_EURO_BETA * Math.abs(dxHat), te)
-    const ay = smoothingFactor(minCutoff + ONE_EURO_BETA * Math.abs(dyHat), te)
-    xHat += ax * (x - xHat)
-    yHat += ay * (y - yHat)
-    path[i] = [t, xHat, yHat]
-  }
+  // One Euro is built for live input, where only the past is known, so it can
+  // only ever lag. Here the whole log is already on disk, so the same filter is
+  // run forwards and then backwards: the delay of the second pass cancels the
+  // delay of the first. Smoothing one way alone left the drawn pointer trailing
+  // the real one, and because the filter eases harder at low speed the size of
+  // that lag changed with the mouse — so click ripples landed early or late by
+  // an amount that moved around.
+  const minCutoff = minCutoffFor(s) * FILTFILT_CUTOFF_GAIN
+  oneEuroPass(path, minCutoff, false)
+  oneEuroPass(path, minCutoff, true)
   return path
 }
 

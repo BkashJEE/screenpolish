@@ -12,6 +12,7 @@ import { defaultMusicRoot, getCursorSkin, loadSettings } from './settings'
 import { shortcutManager, shouldRegisterGlobalShortcuts } from './shortcuts'
 import { DEFAULT_SHORTCUTS } from '@shared/shortcuts'
 import { registerExportRequestIpc } from './export-requests'
+import { acquireSingleInstanceLock, releaseServerSpawn } from './server-lock'
 import { durationOf } from './duration'
 import { createExportSink } from './export-sink'
 import { registerEditorIpc } from './ipc'
@@ -54,7 +55,10 @@ else if (!app.isPackaged) app.setPath('userData', path.join(app.getPath('appData
 // See cli.ts. Everything else is the server (single instance).
 const argv = cliArgs()
 const isCliClient = looksLikeCli(argv) && !selfTestRequested()
-const gotLock = isCliClient ? false : app.requestSingleInstanceLock()
+// A CLI client that is waiting for us polls by taking this same lock, so one
+// refusal does not mean another server owns it. Quitting on the first refusal
+// is what made a freshly spawned server vanish and the command time out.
+const gotLock = isCliClient ? false : acquireSingleInstanceLock(() => app.requestSingleInstanceLock())
 if (isCliClient) {
   void runCliClient(argv)
 } else if (!gotLock) {
@@ -63,6 +67,8 @@ if (isCliClient) {
   app.on('second-instance', (_event, _argv, _cwd, data) => {
     void handleCliPayload(data, { session, durationOf })
   })
+  // We are the server the client was waiting for; the next start need not wait.
+  releaseServerSpawn(path.join(app.getPath('userData'), 'cli'))
   app.whenReady().then(main).catch((err) => {
     console.error('[main] startup failed', err)
     dialog.showErrorBox('Polish failed to start', err instanceof Error ? err.stack ?? err.message : String(err))

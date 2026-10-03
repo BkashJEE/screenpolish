@@ -19,6 +19,7 @@ import { listRecordings } from './ipc'
 import { recordingsRoot } from './media-protocol'
 import type { RecordingSession } from './recording-session'
 import { regionFromOverlayRect } from './region-math'
+import { claimServerSpawn, serverExecutable } from './server-lock'
 import { openEditor } from './windows'
 
 export interface CliPayload {
@@ -117,7 +118,9 @@ function exit(code: number): never {
 async function ensureServer(payload: CliPayload): Promise<boolean> {
   if (!app.requestSingleInstanceLock(payload)) return true
   app.releaseSingleInstanceLock()
-  spawnServer()
+  // Only one client gets to start a server. Without this, three CLI calls in a
+  // row each found no server and each spawned one, leaving three live apps.
+  if (claimServerSpawn(replyDir())) spawnServer()
   const deadline = Date.now() + 25_000
   while (Date.now() < deadline) {
     await sleep(400)
@@ -129,7 +132,7 @@ async function ensureServer(payload: CliPayload): Promise<boolean> {
 
 function spawnServer(): void {
   const args = app.isPackaged ? [] : [app.getAppPath()]
-  const child = spawn(process.execPath, args, {
+  const child = spawn(serverExecutable(), args, {
     detached: true,
     stdio: 'ignore',
     env: { ...process.env, POLISH_SERVER: '1' },

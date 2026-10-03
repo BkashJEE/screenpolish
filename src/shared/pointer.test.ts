@@ -190,16 +190,17 @@ describe('smoothPointerPath', () => {
       ]
     })
     const path = smoothPointerPath(events, 1)
-    const before = smoothedPointerAt(path, 1.0)
-    expect(before?.x).toBeCloseTo(0)
-    // Smoothing lags right at the jump...
-    const atJump = smoothedPointerAt(path, 1.02)
-    expect(atJump?.x).toBeGreaterThan(0)
-    expect(atJump?.x).toBeLessThan(1000)
-    // ...but catches up within a quarter second thanks to the speed coefficient.
-    const soon = smoothedPointerAt(path, 1.25)
-    expect(soon?.x).toBeGreaterThan(980)
-    expect(soon?.x).toBeLessThanOrEqual(1000)
+    // Filtering both ways centres the move on the jump rather than trailing it.
+    // The price is a little anticipation: 50 ms ahead it has moved under one
+    // pixel of a thousand, which is a far better trade than the quarter second
+    // of lag it replaces.
+    expect(smoothedPointerAt(path, 0.95)?.x).toBeLessThan(1)
+    const atJump = smoothedPointerAt(path, 1.0)
+    expect(atJump?.x).toBeGreaterThan(100)
+    expect(atJump?.x).toBeLessThan(900)
+    // Arrived 20 ms later, instead of catching up over the next quarter second.
+    expect(smoothedPointerAt(path, 1.02)?.x).toBeGreaterThan(900)
+    expect(smoothedPointerAt(path, 1.25)?.x).toBeLessThanOrEqual(1000)
   })
 
   it('never overshoots a monotone move', () => {
@@ -295,5 +296,54 @@ describe('ripplesAt', () => {
   it('honours a custom lifeSec', () => {
     expect(ripplesAt(events, 1.5, 1)).toHaveLength(2)
     expect(ripplesAt(events, 1.5, 0.1)).toEqual([])
+  })
+})
+
+describe('smoothPointerPath is zero-phase', () => {
+  /** A steady left-to-right move: 600 px/s for two seconds, sampled every 10 ms. */
+  function ramp(): RecordingEvents {
+    const pointer: Array<[number, number, number]> = []
+    for (let t = 0; t <= 2000; t += 10) pointer.push([t, (t / 1000) * 600, 100])
+    return makeEvents({ pointer })
+  }
+
+  it('does not delay a steady move, however hard it smooths', () => {
+    for (const strength of [0.3, 0.6, 0.85, 1]) {
+      const path = smoothPointerPath(ramp(), strength, 100)
+      const mid = path.find((p) => p[0] === 1000)
+      expect(mid).toBeDefined()
+      // The true position at t=1000 ms is x=600. A forward-only filter trails it
+      // by tens of pixels at these strengths.
+      expect(Math.abs((mid as [number, number, number])[1] - 600)).toBeLessThan(5)
+    }
+  })
+
+  it('still removes jitter', () => {
+    const pointer: Array<[number, number, number]> = []
+    for (let i = 0; i <= 200; i++) {
+      const t = i * 10
+      pointer.push([t, (t / 1000) * 600 + (i % 2 === 0 ? 12 : -12), 100])
+    }
+    const events = makeEvents({ pointer })
+    const raw = smoothPointerPath(events, 0, 100)
+    const smooth = smoothPointerPath(events, 0.8, 100)
+    const wobble = (path: Array<[number, number, number]>): number =>
+      path.reduce((sum, [t, x]) => sum + Math.abs(x - (t / 1000) * 600), 0) / path.length
+    expect(wobble(smooth)).toBeLessThan(wobble(raw) / 2)
+  })
+
+  it('keeps the drawn pointer on the click, which is what made ripples look early or late', () => {
+    const events = ramp()
+    // Where the pointer truly was at each of these moments.
+    for (const t of [400, 900, 1500]) {
+      const path = smoothPointerPath(events, 0.85, 100)
+      const at = path.find((p) => p[0] === t) as [number, number, number]
+      expect(Math.abs(at[1] - (t / 1000) * 600)).toBeLessThan(5)
+    }
+  })
+
+  it('leaves a path of one sample alone', () => {
+    const events = makeEvents({ pointer: [[0, 5, 6]] })
+    expect(smoothPointerPath(events, 1, 100)).toEqual([[0, 5, 6]])
   })
 })

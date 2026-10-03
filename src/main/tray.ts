@@ -44,6 +44,12 @@ export function createTray(actions: TrayActions): TrayHandle {
   const tray = new Tray(idleIcon)
   let state: RecordingState = { status: 'idle' }
   let exportProgress: number | null = null
+  // What the tray is already showing. Setting the same image again republishes
+  // it over the StatusNotifierItem interface, and a tray that reloads an icon on
+  // every state change can take its host down with it: Omarchy's quickshell
+  // crashed in its pixmap reader four times during two short recordings, each
+  // crash landing on the second a take started or finished.
+  let shown = idleIcon
 
   const tooltip = (): string => {
     if (exportProgress !== null) return `ScreenPolish — exporting ${Math.round(exportProgress * 100)}%`
@@ -66,7 +72,11 @@ export function createTray(actions: TrayActions): TrayHandle {
     const idle = state.status === 'idle'
     const recording = state.status === 'recording'
     const busy = state.status === 'countdown' || recording
-    tray.setImage(busy ? recIcon : idleIcon)
+    const wanted = busy ? recIcon : idleIcon
+    if (wanted !== shown) {
+      tray.setImage(wanted)
+      shown = wanted
+    }
     tray.setToolTip(tooltip())
     tray.setContextMenu(
       Menu.buildFromTemplate([

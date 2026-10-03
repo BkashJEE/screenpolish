@@ -294,14 +294,19 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
               )}
             >
               <span className="block aspect-video" style={{ backgroundImage: `url(${imageUrlForPath(b.path)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+              {/* A theme shows its wordmark; everything else says what it is. The
+                  drawn backgrounds are dark and similar at this size, and an
+                  unlabelled tile is not a choice anyone can make. */}
               {BRAND_THEMES.some((t) => t.id === b.id) ? (
                 <span className="flex h-9 items-center px-2" style={{ background: PACK_PLATE_INK }}>
                   <BannerMark className="h-4 w-full" />
                 </span>
-              ) : (
+              ) : b.id === 'omarchy' ? (
                 <span className="block px-2 py-1 text-xl" aria-hidden="true" style={{ fontFamily: '"Omarchy Brand"' }}>
                   {'\ue900'}
                 </span>
+              ) : (
+                <span className="block truncate px-2 py-1.5 text-[11px] text-fg-dim">{b.name}</span>
               )}
             </button>
           ))}

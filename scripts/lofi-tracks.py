@@ -130,6 +130,20 @@ TRACKS = [
           seed=101, swing=0.18, note='warmest of the set'),
     Track('Long Weekend.wav', 60, ['C4 E4 G4 B4', 'A3 C4 E4 G4', 'F3 A3 C4 E4', 'G3 B3 D4 F4'],
           seed=137, swing=0.0, drums=False, note='pad only, barely there'),
+    # Longer beds, for a take that runs past a couple of minutes: a demo should
+    # not have to loop its music or run out of it half way through.
+    Track('Second Coffee.wav', 70, ['A3 C4 E4 G4', 'E3 G3 B3 D4', 'F3 A3 C4 E4', 'D3 F3 A3 C4'],
+          seed=167, swing=0.15, repeats=7, note='the long one, steady and unhurried'),
+    Track('Open Tabs.wav', 82, ['C4 E4 G4 B4', 'G3 B3 D4 F4', 'A3 C4 E4 G4', 'F3 A3 C4 E4'],
+          seed=199, swing=0.17, repeats=7, note='brighter and longer, for a busy screen'),
+    Track('Deep Work.wav', 64, ['D3 F3 A3 C4', 'A3 C4 E4 G4', 'E3 G3 B3 D4', 'G3 B3 D4 F4'],
+          seed=233, swing=0.0, drums=False, repeats=7, note='no drums, long, stays out of the way'),
+    Track('Blue Hour.wav', 68, ['E3 G3 B3 D4', 'A3 C4 E4 G4', 'D3 F3 A3 C4', 'F3 A3 C4 E4'],
+          seed=271, swing=0.13, repeats=6, note='minor and cool, late in the day'),
+    Track('Low Light.wav', 74, ['F3 A3 C4 E4', 'D3 F3 A3 C4', 'G3 B3 D4 F4', 'C4 E4 G4 B4'],
+          seed=313, swing=0.16, repeats=6, note='warm, close, a room with one lamp on'),
+    Track('Quiet Floor.wav', 58, ['A3 C4 E4 G4', 'F3 A3 C4 E4', 'C4 E4 G4 B4', 'E3 G3 B3 D4'],
+          seed=353, swing=0.0, drums=False, repeats=6, note='the quietest, barely a pulse'),
 ]
 
 

@@ -27,7 +27,15 @@ export const BUNDLED_MUSIC: BundledTrack[] = [
   { path: 'bundled:music/Paper Cup.mp3', name: 'Paper Cup', note: '76 bpm · warm', seconds: 101 },
   { path: 'bundled:music/Night Shift.mp3', name: 'Night Shift', note: '68 bpm · minor', seconds: 112 },
   { path: 'bundled:music/Window Rain.mp3', name: 'Window Rain', note: '64 bpm · no drums', seconds: 120 },
-  { path: 'bundled:music/Long Weekend.mp3', name: 'Long Weekend', note: '60 bpm · pad only', seconds: 128 }
+  { path: 'bundled:music/Long Weekend.mp3', name: 'Long Weekend', note: '60 bpm · pad only', seconds: 128 },
+  // Longer beds. The six above run a minute and a half to two minutes, which a
+  // demo outlasts easily; these carry one on their own.
+  { path: 'bundled:music/Second Coffee.mp3', name: 'Second Coffee', note: '70 bpm · 3 min', seconds: 193 },
+  { path: 'bundled:music/Open Tabs.mp3', name: 'Open Tabs', note: '82 bpm · brighter, 3 min', seconds: 165 },
+  { path: 'bundled:music/Deep Work.mp3', name: 'Deep Work', note: '64 bpm · no drums, 3½ min', seconds: 211 },
+  { path: 'bundled:music/Blue Hour.mp3', name: 'Blue Hour', note: '68 bpm · minor, 3 min', seconds: 170 },
+  { path: 'bundled:music/Low Light.mp3', name: 'Low Light', note: '74 bpm · warm, 2½ min', seconds: 157 },
+  { path: 'bundled:music/Quiet Floor.mp3', name: 'Quiet Floor', note: '58 bpm · pad only, 3⅓ min', seconds: 200 }
 ]
 
 /** The file each track is served from, relative to `resources/`. */

@@ -37,6 +37,50 @@ interface Job {
 
 let counter = 0
 
+/**
+ * Extension an in-progress export writes under. It is deliberately not a media
+ * extension, so a half-written file cannot be mistaken for a finished one by
+ * the library, a file manager, or the person looking at the folder.
+ */
+export const PART_SUFFIX = '.part'
+
+/** Older than this and a part file cannot belong to a running export. */
+const ABANDONED_PART_MS = 6 * 60 * 60 * 1000
+
+/**
+ * Clear part files left by an export that was killed rather than finished -
+ * a crash, a quit, or the machine going down mid-render. Only old ones, so a
+ * second export running right now is never touched.
+ */
+async function sweepAbandonedParts(dir: string, existing: readonly string[]): Promise<void> {
+  const now = Date.now()
+  await Promise.all(
+    existing
+      .filter((name) => name.endsWith(PART_SUFFIX))
+      .map(async (name) => {
+        const file = path.join(dir, name)
+        try {
+          const stat = await fs.promises.stat(file)
+          if (now - stat.mtimeMs > ABANDONED_PART_MS) await fs.promises.rm(file, { force: true })
+        } catch {
+          // Gone already, or not ours to read.
+        }
+      })
+  )
+}
+
+/**
+ * The name to finish under. It was chosen when the export began, and another
+ * export may have taken it since - nothing was holding it, because writing
+ * went to a part file.
+ */
+async function claimFinalPath(wanted: string, kind: 'mp4' | 'gif'): Promise<string> {
+  if (!fs.existsSync(wanted)) return wanted
+  const dir = path.dirname(wanted)
+  const existing = await fs.promises.readdir(dir).catch(() => [] as string[])
+  return path.join(dir, uniqueName(existing, stemOf(path.basename(wanted)), kind))
+}
+
 export function assertInsideRoot(root: string, folder: string): string {
   const rootAbs = path.resolve(root)
   const abs = path.resolve(folder)
@@ -83,7 +127,13 @@ export function createExportSink(deps: ExportSinkDeps): ExportSink {
       const id = `exp-${Date.now()}-${++counter}`
       const finalName = uniqueName(existing, base, request.kind)
       const finalPath = path.join(exportsDir, finalName)
-      const writePath = request.kind === 'gif' ? path.join(exportsDir, `${stemOf(finalName)}.${id}.tmp.mp4`) : finalPath
+      // Never write to the name the user will see. An export that dies before
+      // it finishes used to leave a plausible-looking 0 byte .mp4 sitting in
+      // the folder, indistinguishable from a real one until it was played.
+      const writePath = request.kind === 'gif'
+        ? path.join(exportsDir, `${stemOf(finalName)}.${id}.tmp.mp4`)
+        : `${finalPath}.${id}${PART_SUFFIX}`
+      await sweepAbandonedParts(exportsDir, existing)
       const fd = fs.openSync(writePath, 'w+')
       jobs.set(id, { id, kind: request.kind, fd, writePath, finalPath })
       deps.onProgress?.(id, 0)
@@ -104,6 +154,14 @@ export function createExportSink(deps: ExportSinkDeps): ExportSink {
       const job = take(request.exportId)
       closeFd(job)
       try {
+        // A render that produced nothing is a failure, not a file. Saying so
+        // here is the difference between an error the user can act on and an
+        // empty export they discover later.
+        const written = await fs.promises.stat(job.writePath).then((st) => st.size).catch(() => 0)
+        if (written === 0) {
+          await fs.promises.rm(job.writePath, { force: true })
+          throw new Error('The export produced no video, so nothing was saved. Try again, and tell us if it keeps happening.')
+        }
         const count = request.audioTrackCount ?? 0
         if (job.kind === 'mp4' && Number.isInteger(count) && count >= 1 && count <= 32) {
           const mixed = `${job.writePath}.${job.id}.mixed.mp4`
@@ -113,6 +171,10 @@ export function createExportSink(deps: ExportSinkDeps): ExportSink {
         if (job.kind === 'gif') {
           await runFfmpeg(deps.ffmpegPath(), ffmpegGifArgs(job.writePath, job.finalPath, request.fps, request.width))
           await fs.promises.rm(job.writePath, { force: true })
+        } else {
+          // Only now does the finished file take the name the library shows.
+          job.finalPath = await claimFinalPath(job.finalPath, job.kind)
+          await fs.promises.rename(job.writePath, job.finalPath)
         }
       } finally {
         jobs.delete(job.id)

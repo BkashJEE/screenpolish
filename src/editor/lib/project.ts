@@ -65,7 +65,7 @@ export function normalizeProject(raw: Partial<Project> | null | undefined): Proj
     version: 1,
     title: typeof p.title === 'string' ? p.title : '',
     trim: { ...DEFAULT_PROJECT.trim, ...(p.trim ?? {}) },
-    speedRegions: Array.isArray(p.speedRegions) ? p.speedRegions.filter((r) => Number.isFinite(r.start) && Number.isFinite(r.end) && r.end > r.start && Number.isFinite(r.rate)).map((r) => ({ ...r, rate: Math.min(4, Math.max(0.25, r.rate)) })) : [],
+    speedRegions: Array.isArray(p.speedRegions) ? p.speedRegions.filter((r) => Number.isFinite(r.start) && Number.isFinite(r.end) && r.end > r.start && Number.isFinite(r.rate)).map((r) => ({ ...r, rate: Math.min(4, Math.max(0.25, r.rate)), ...(Number.isFinite(r.ease) && (r.ease as number) > 0 ? { ease: Math.min(r.ease as number, (r.end - r.start) / 2) } : {}) })) : [],
     cuts: normalizeCuts(p.cuts),
     splits: Array.isArray(p.splits) ? p.splits.filter((t) => Number.isFinite(t)) : [],
     cutTransition: normalizeCutTransition(p.cutTransition),

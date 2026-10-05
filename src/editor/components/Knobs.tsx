@@ -240,6 +240,20 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
           <NumberField ariaLabel="Speed start" value={r.start} min={0} max={r.end - 0.1} step={0.1} suffix="s" onChange={(start) => onProject((p) => ({ ...p, speedRegions: (p.speedRegions ?? []).map((v) => v.id === r.id ? { ...v, start } : v) }))} />
           <NumberField ariaLabel="Speed end" value={r.end} min={r.start + 0.1} max={duration} step={0.1} suffix="s" onChange={(end) => onProject((p) => ({ ...p, speedRegions: (p.speedRegions ?? []).map((v) => v.id === r.id ? { ...v, end } : v) }))} />
           <SliderField label="Speed" value={r.rate} min={0.25} max={4} step={0.25} format={(v) => `${v}×`} onChange={(rate) => onProject((p) => ({ ...p, speedRegions: (p.speedRegions ?? []).map((v) => v.id === r.id ? { ...v, rate } : v) }))} />
+          <SliderField
+            label="Ramp"
+            value={r.ease ?? 0}
+            min={0}
+            max={Math.max(0.1, (r.end - r.start) / 2)}
+            step={0.05}
+            format={(v) => (v <= 0 ? 'Instant' : `${v.toFixed(2)} s`)}
+            onChange={(ease) => onProject((p) => ({ ...p, speedRegions: (p.speedRegions ?? []).map((v) => v.id === r.id ? { ...v, ease } : v) }))}
+          />
+          <p className="text-[11px] text-fg-muted">
+            {(r.ease ?? 0) <= 0
+              ? 'The speed changes in one frame. A ramp eases into it and back out, which is what stops a cut announcing itself.'
+              : `Eases from 1× up to ${r.rate}× over ${(r.ease as number).toFixed(2)}s, and back down over the same at the end.`}
+          </p>
           <Button size="sm" onClick={() => onProject((p) => ({ ...p, speedRegions: (p.speedRegions ?? []).filter((v) => v.id !== r.id) }))}>Remove</Button>
         </div>)}
         <Button size="sm" disabled={duration <= 0} onClick={() => onProject((p) => ({ ...p, speedRegions: [...(p.speedRegions ?? []), { id: crypto.randomUUID(), start: p.trim.start, end: Math.min(duration, p.trim.start + 3), rate: 2 }] }))}>Add speed region</Button>

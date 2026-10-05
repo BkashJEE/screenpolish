@@ -119,9 +119,12 @@ app bundles can be produced elsewhere — unsigned, which macOS will notice.
 
 ## Licence
 
-AGPL-3.0-or-later; see `LICENSE`. In short: use it, change it, share it — and
-if you distribute a modified version, or run one as a service, publish your
-source too.
+MIT; see `LICENSE`. In short: use it, change it, ship it in whatever you like,
+commercial or not — just keep the copyright notice.
+
+The installers bundle **ffmpeg**, which is GPL-3.0 and stays that way. That
+covers the bundled binary, not this project's code. Its licence and where to
+get its source are in `THIRD_PARTY_NOTICES.md`.
 
 The name "ScreenPolish" and the logo are not covered by that licence.
 

@@ -2,8 +2,9 @@
 
 ScreenPolish bundles the components below. Each keeps its own licence; this
 file travels with every installer (`resources/THIRD_PARTY_NOTICES.md`).
-ScreenPolish itself is not yet released under an open-source licence
-(`package.json` says `UNLICENSED`).
+ScreenPolish itself is MIT licensed; see `LICENSE`. That does not change the
+terms of anything listed here — in particular FFmpeg stays GPL-3.0, and the
+offer of its source below applies to every installer that bundles it.
 
 ## Bundled programs
 

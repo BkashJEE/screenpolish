@@ -175,6 +175,57 @@ server.registerTool(
 )
 
 server.registerTool(
+  'screenpolish_replay_start',
+  {
+    title: 'Start holding a replay buffer',
+    description:
+      'Hold the last N seconds of the screen in memory, writing nothing to disk until asked. ' +
+      'Use this when you do not know in advance which moment will be worth keeping — start the buffer, ' +
+      'work, and call screenpolish_replay_save once something happens. Linux only, and it cannot run at ' +
+      'the same time as an ordinary recording.',
+    inputSchema: {
+      seconds: z.number().int().min(5).max(600).describe('Seconds of history to hold. Longer costs memory.'),
+      display: z
+        .union([z.literal('primary'), z.number().int().min(1)])
+        .optional()
+        .describe('Which screen: "primary", or a 1-based index.'),
+      fps: z.union([z.literal(30), z.literal(60)]).optional().describe('Capture frame rate. 30 by default.')
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+  },
+  async ({ seconds, display, fps }) => {
+    const args = ['replay', 'start', '--seconds', String(seconds)]
+    if (display !== undefined) args.push('--display', String(display))
+    if (fps !== undefined) args.push('--fps', String(fps))
+    return reply(args)
+  }
+)
+
+server.registerTool(
+  'screenpolish_replay_save',
+  {
+    title: 'Save the replay buffer',
+    description:
+      'Write what the buffer is holding to a clip, and keep holding. Returns the path of the clip. ' +
+      'Call this straight after the thing worth keeping happened — the buffer only holds the last N seconds.',
+    inputSchema: {},
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+  },
+  async () => reply(['replay', 'save'], 90_000)
+)
+
+server.registerTool(
+  'screenpolish_replay_stop',
+  {
+    title: 'Stop holding a replay buffer',
+    description: 'Stop holding history and free the memory. Anything not already saved is discarded.',
+    inputSchema: {},
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+  },
+  async () => reply(['replay', 'stop'])
+)
+
+server.registerTool(
   'screenpolish_open_editor',
   {
     title: 'Open the editor',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as path from 'node:path'
-import { findGsr, gsrArgs, monitorContaining, monitorForBounds, monitorLogicalRect, parseFirstFrameTs, planNativeCapture, regionTarget } from './gsr'
+import { MAX_REPLAY_SECONDS, MIN_REPLAY_SECONDS, findGsr, gsrArgs, gsrReplayArgs, monitorContaining, monitorForBounds, monitorLogicalRect, parseFirstFrameTs, planNativeCapture, regionTarget } from './gsr'
 
 // This machine: one 3440x1440 ultrawide at 1.25, so 2752x1152 logical.
 const ultrawide = { name: 'HDMI-A-2', x: 0, y: 0, width: 3440, height: 1440, scale: 1.25 }
@@ -95,5 +95,34 @@ describe('planNativeCapture', () => {
   it('falls back when a screen cannot be matched or a window is gone', () => {
     expect(planNativeCapture({ kind: 'screen', monitors, displayBounds: { x: 0, y: 0, width: 1920, height: 1080 } })).toHaveProperty('skip')
     expect(planNativeCapture({ kind: 'window', monitors, window: null })).toHaveProperty('skip')
+  })
+})
+
+describe('gsrReplayArgs', () => {
+  const base = { target: 'HDMI-A-2', fps: 60, seconds: 30, directory: '/r/replays' }
+
+  it('asks for a ring buffer held in memory, writing to a directory', () => {
+    const args = gsrReplayArgs(base)
+    expect(args).toContain('-r')
+    expect(args[args.indexOf('-r') + 1]).toBe('30')
+    expect(args.slice(args.indexOf('-replay-storage'), args.indexOf('-replay-storage') + 2)).toEqual(['-replay-storage', 'ram'])
+    // The output is a directory in replay mode: every save is its own clip.
+    expect(args.at(-1)).toBe('/r/replays')
+    expect(args.at(-2)).toBe('-o')
+  })
+
+  it('records without the cursor, like every other capture here', () => {
+    expect(gsrReplayArgs(base).slice(-4, -2)).not.toContain('-cursor')
+    expect(gsrReplayArgs(base).join(' ')).toContain('-cursor no')
+  })
+
+  it('keeps the buffer to a length worth holding', () => {
+    expect(gsrReplayArgs({ ...base, seconds: 1 })[gsrReplayArgs({ ...base, seconds: 1 }).indexOf('-r') + 1]).toBe(String(MIN_REPLAY_SECONDS))
+    expect(gsrReplayArgs({ ...base, seconds: 99_999 })[gsrReplayArgs({ ...base, seconds: 99_999 }).indexOf('-r') + 1]).toBe(String(MAX_REPLAY_SECONDS))
+  })
+
+  it('rounds a fractional length rather than passing it on', () => {
+    const args = gsrReplayArgs({ ...base, seconds: 30.6 })
+    expect(args[args.indexOf('-r') + 1]).toBe('31')
   })
 })

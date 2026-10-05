@@ -67,3 +67,36 @@ describe('replyTimeoutMs', () => {
     expect(replyTimeoutMs(parseCli(['clip', '--seconds', '10', '--export', 'gif']))).toBe(160_000 + 600_000)
   })
 })
+
+describe('replay commands', () => {
+  it('parses start with a buffer length', () => {
+    expect(parseCli(['replay', 'start', '--seconds', '30'])).toEqual({
+      kind: 'replay-start', seconds: 30, start: { ...DEFAULT_START }
+    })
+  })
+
+  it('carries the display and frame rate through to the buffer', () => {
+    const parsed = parseCli(['replay', 'start', '--seconds', '60', '--display', '2', '--fps', '60'])
+    expect(parsed).toMatchObject({ kind: 'replay-start', seconds: 60 })
+    expect((parsed as { start: { display: unknown; fps: number } }).start).toMatchObject({ display: 2, fps: 60 })
+  })
+
+  it('insists on a length, since there is no sensible default for memory', () => {
+    expect(() => parseCli(['replay', 'start'])).toThrow(/--seconds/)
+  })
+
+  it('parses save and stop, which take nothing', () => {
+    expect(parseCli(['replay', 'save'])).toEqual({ kind: 'replay-save' })
+    expect(parseCli(['replay', 'stop'])).toEqual({ kind: 'replay-stop' })
+    expect(() => parseCli(['replay', 'save', '--seconds', '5'])).toThrow(/Unexpected/)
+  })
+
+  it('rejects a subcommand it does not have', () => {
+    expect(() => parseCli(['replay'])).toThrow(/start, save or stop/)
+    expect(() => parseCli(['replay', 'discard'])).toThrow(/start, save or stop/)
+  })
+
+  it('is recognised as a command, so the CLI does not treat it as app argv', () => {
+    expect(looksLikeCli(['replay', 'save'])).toBe(true)
+  })
+})

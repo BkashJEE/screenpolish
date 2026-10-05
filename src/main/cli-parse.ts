@@ -7,6 +7,9 @@
 //   polish record stop  [--export mp4|gif] [--name NAME]
 //   polish clip --seconds N [start options] [--export mp4|gif] [--name NAME]
 //   polish export FOLDER [--kind mp4|gif] [--name NAME]
+//   polish replay start --seconds N [start options]
+//   polish replay save
+//   polish replay stop
 //   polish open [FOLDER]
 //
 // Every command prints one JSON object on stdout and exits 0 on success, 1 on
@@ -36,12 +39,15 @@ export type CliCommand =
   | { kind: 'record-stop'; export: ExportOptions }
   | { kind: 'clip'; seconds: number; start: StartOptions; export: ExportOptions }
   | { kind: 'export'; folder: string; export: ExportOptions }
+  | { kind: 'replay-start'; seconds: number; start: StartOptions }
+  | { kind: 'replay-save' }
+  | { kind: 'replay-stop' }
   | { kind: 'open'; folder: string | null }
   | { kind: 'quit' }
 
 export const DEFAULT_START: StartOptions = { display: 'primary', region: null, mic: false, system: true, webcam: false, fps: 30 }
 
-const COMMAND_WORDS = new Set(['status', 'list', 'record', 'clip', 'export', 'open', 'quit', 'help', '--help', '-h'])
+const COMMAND_WORDS = new Set(['status', 'list', 'record', 'replay', 'clip', 'export', 'open', 'quit', 'help', '--help', '-h'])
 
 /** True when argv (already stripped of the executable) starts a CLI command. */
 export function looksLikeCli(args: readonly string[]): boolean {
@@ -80,6 +86,9 @@ export const HELP = `polish — screen recorder with automatic polish
   polish record stop  [--export mp4|gif] [--name NAME]
   polish clip --seconds N [start options] [--export mp4|gif] [--name NAME]
   polish export FOLDER [--kind mp4|gif] [--name NAME]
+  polish replay start --seconds N [start options]   hold the last N seconds, writing nothing
+  polish replay save                                write what is held to a clip
+  polish replay stop                                stop holding
   polish open [FOLDER]
   polish quit                              stop the tray app (refused while recording)
 
@@ -200,6 +209,24 @@ export function parseCli(argv: readonly string[]): CliCommand {
       }
       throw new CliUsageError('record expects start or stop')
     }
+    case 'replay': {
+      const [sub, ...opts] = tail
+      if (sub === 'start') {
+        const parsed = parseStartAndExport(opts, false)
+        if (parsed.rest.length) throw new CliUsageError(`Unexpected argument ${parsed.rest[0]}`)
+        if (parsed.seconds === null) throw new CliUsageError('replay start needs --seconds N')
+        return { kind: 'replay-start', seconds: parsed.seconds, start: parsed.start }
+      }
+      if (sub === 'save') {
+        if (opts.length) throw new CliUsageError(`Unexpected argument ${opts[0]}`)
+        return { kind: 'replay-save' }
+      }
+      if (sub === 'stop') {
+        if (opts.length) throw new CliUsageError(`Unexpected argument ${opts[0]}`)
+        return { kind: 'replay-stop' }
+      }
+      throw new CliUsageError('replay expects start, save or stop')
+    }
     case 'clip': {
       const parsed = parseStartAndExport(tail, true)
       if (parsed.seconds === null) throw new CliUsageError('clip needs --seconds N')
@@ -228,6 +255,12 @@ export function replyTimeoutMs(command: CliCommand): number {
       return (command.seconds + 150) * 1000 + (command.export.kind ? 10 * 60 * 1000 : 0)
     case 'record-start':
       return 150 * 1000
+    // Starting a buffer settles for under a second; saving waits for gsr to
+    // flush the clip. Neither is long, but neither is instant either.
+    case 'replay-start':
+      return 30 * 1000
+    case 'replay-save':
+      return 60 * 1000
     case 'record-stop':
       return 60 * 1000 + (command.export.kind ? 10 * 60 * 1000 : 0)
     case 'export':

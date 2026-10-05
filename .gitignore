@@ -2,6 +2,9 @@ node_modules
 out/
 dist/
 release/
+# Where scripts/lofi-tracks.py renders its WAV masters before they are encoded.
+# Regenerable from the seeds, and several hundred megabytes of them.
+.music-build/
 *.log
 .DS_Store
 spike/*.png

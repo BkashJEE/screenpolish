@@ -1,0 +1,23 @@
+{
+  "name": "screenpolish-mcp-server",
+  "version": "0.1.0",
+  "description": "Drive ScreenPolish from an agent: record a screen, list takes, export MP4 or GIF.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "bin": { "screenpolish-mcp-server": "dist/index.js" },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

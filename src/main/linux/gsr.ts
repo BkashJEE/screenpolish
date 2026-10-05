@@ -98,6 +98,35 @@ export function monitorForBounds(bounds: LogicalRect, monitors: readonly GsrMoni
   )
 }
 
+/**
+ * Replay mode: gsr keeps the last `seconds` in a ring buffer and writes nothing
+ * until it is told to. The output is a *directory*, not a file, because each
+ * save produces its own clip.
+ *
+ * This is the one thing a recorder can do that planning ahead cannot: you
+ * notice the bug after it happened, and the last thirty seconds are still there.
+ */
+export function gsrReplayArgs(opts: { target: string; fps: number; seconds: number; directory: string }): string[] {
+  return [
+    '-w', opts.target,
+    '-c', 'mp4',
+    '-k', 'auto',
+    '-f', String(opts.fps),
+    '-fm', 'cfr',
+    '-cursor', 'no',
+    '-fallback-cpu-encoding', 'yes',
+    // Seconds of history to hold. gsr keeps this in memory by default, which is
+    // what makes a save instant rather than a copy.
+    '-r', String(Math.max(MIN_REPLAY_SECONDS, Math.min(MAX_REPLAY_SECONDS, Math.round(opts.seconds)))),
+    '-replay-storage', 'ram',
+    '-o', opts.directory
+  ]
+}
+
+/** Shorter than this is not worth a buffer; longer eats memory for no good reason. */
+export const MIN_REPLAY_SECONDS = 5
+export const MAX_REPLAY_SECONDS = 600
+
 export function gsrArgs(opts: { target: string; fps: number; output: string }): string[] {
   return [
     '-w', opts.target,
@@ -126,6 +155,62 @@ export function parseFirstFrameTs(text: string): number | null {
 }
 
 /** Running gpu-screen-recorder for one take. */
+/**
+ * A running replay buffer.
+ *
+ * Kept apart from GsrRecording because the two are not the same shape: a
+ * recording writes one file and is waited on for its first frame, while this
+ * writes nothing until asked and is driven entirely by signals.
+ */
+export class GsrReplay {
+  private child: ChildProcess | null = null
+  private stderrTail = ''
+
+  constructor(
+    readonly bin: string,
+    readonly args: string[],
+    readonly directory: string,
+    private readonly spawnFn: typeof spawn = spawn
+  ) {}
+
+  /**
+   * Start holding history. Resolves once gsr has stayed up long enough to be
+   * believed - there is no first frame to wait for, so a short settle is the
+   * only honest signal that it did not fail immediately.
+   */
+  async start(settleMs = 700): Promise<void> {
+    fs.mkdirSync(this.directory, { recursive: true })
+    const child = this.spawnFn(this.bin, this.args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    this.child = child
+    child.stderr?.on('data', (chunk: Buffer) => {
+      this.stderrTail = (this.stderrTail + chunk.toString()).slice(-4000)
+    })
+    await new Promise((r) => setTimeout(r, settleMs))
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`gpu-screen-recorder could not hold a replay buffer: ${this.stderrTail.trim().split('\n').at(-1) ?? 'it exited'}`)
+    }
+  }
+
+  /** Write the buffered history to a clip. SIGUSR1 is gsr's save-replay signal. */
+  save(): void {
+    if (!this.running) throw new Error('No replay buffer is running')
+    this.child?.kill('SIGUSR1')
+  }
+
+  /** Stop holding history. In replay mode SIGINT stops without saving. */
+  async stop(): Promise<void> {
+    const child = this.child
+    this.child = null
+    if (!child || child.exitCode !== null) return
+    child.kill('SIGINT')
+    await new Promise((r) => setTimeout(r, 300))
+  }
+
+  get running(): boolean {
+    return this.child !== null && this.child.exitCode === null && this.child.signalCode === null
+  }
+}
+
 export class GsrRecording {
   private child: ChildProcess | null = null
   private stderrTail = ''

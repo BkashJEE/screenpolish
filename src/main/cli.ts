@@ -19,6 +19,7 @@ import { listRecordings } from './ipc'
 import { recordingsRoot } from './media-protocol'
 import type { RecordingSession } from './recording-session'
 import { regionFromOverlayRect } from './region-math'
+import { replayBuffer } from './replay'
 import { claimServerSpawn, serverExecutable } from './server-lock'
 import { openEditor } from './windows'
 
@@ -243,6 +244,24 @@ export async function executeCli(command: CliCommand, ctx: CliContext): Promise<
       const recordings: RecordingSummary[] = await listRecordings(recordingsRoot(), ctx.durationOf)
       return { ok: true, root: recordingsRoot(), recordings }
     }
+    case 'replay-start': {
+      if (session.isActive) throw new Error('Stop the recording before holding a replay buffer; they cannot both have the screen.')
+      const display = pickDisplay(command.start.display)
+      const state = await replayBuffer.start({
+        root: recordingsRoot(),
+        displayBounds: display.bounds,
+        seconds: command.seconds,
+        fps: command.start.fps
+      })
+      return { ok: true, replay: state }
+    }
+    case 'replay-save': {
+      const { clip, state } = await replayBuffer.save()
+      if (!clip) return { ok: false, error: 'The replay was asked for but no clip appeared. Check the replay folder, and that there is room on disk.' }
+      return { ok: true, clip, replay: state }
+    }
+    case 'replay-stop':
+      return { ok: true, replay: await replayBuffer.stop() }
     case 'open': {
       const folder = command.folder ? resolveFolder(command.folder) : ''
       openEditor(folder)

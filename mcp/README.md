@@ -17,6 +17,9 @@ command, so this is a thin and boring layer by design.
 | `screenpolish_stop_recording` | Stop and finalize, optionally exporting in the same step |
 | `screenpolish_clip` | Record for a fixed number of seconds, then stop on its own |
 | `screenpolish_export` | Render a take to MP4 or GIF, applying its saved edit |
+| `screenpolish_replay_start` | Hold the last N seconds in memory, writing nothing |
+| `screenpolish_replay_save` | Write what is held to a clip, and keep holding |
+| `screenpolish_replay_stop` | Stop holding and free the memory |
 | `screenpolish_open_editor` | Show a take in the window, to hand work back to a person |
 
 `screenpolish_status` and `screenpolish_list_recordings` are read-only. Nothing
@@ -85,6 +88,11 @@ here, and a long 4K take can use a fair slice of it.
 
 **The microphone is off unless asked for.** `mic: true` if you want narration.
 System audio is on by default.
+
+**The replay buffer is for when you do not know what is coming.** Start it, work,
+and save once something happened — it holds the last N seconds in memory and
+writes nothing until asked. Linux only, and it cannot run alongside an ordinary
+recording.
 
 **Prefer `screenpolish_clip` when you know the length.** It stops itself, so a
 failure later in your sequence cannot leave a recording running forever.

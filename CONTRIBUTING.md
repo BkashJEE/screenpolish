@@ -21,10 +21,8 @@ telemetry hook will be declined, however well written.
 ## Sign-off
 
 By sending a pull request you agree that your contribution is licensed under
-this project's AGPL-3.0-or-later licence, and that the maintainer may also
-distribute it under other terms. That keeps a separately licensed build
-possible without asking every contributor again. If you are not comfortable
-with that, open an issue and we can talk about the change instead.
+this project's MIT licence. If you are not comfortable with that, open an issue
+and we can talk about the change instead.
 
 ## What is out of scope
 

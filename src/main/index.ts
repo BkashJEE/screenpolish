@@ -10,8 +10,9 @@ import { looksLikeCli } from './cli-parse'
 import { isCursorHidden, recoverCursorsIfNeeded, restoreSystemCursor } from './win/cursor-manager'
 import { defaultMusicRoot, getCursorSkin, loadSettings } from './settings'
 import { shortcutManager, shouldRegisterGlobalShortcuts } from './shortcuts'
-import { DEFAULT_SHORTCUTS } from '@shared/shortcuts'
+import { DEFAULT_SHORTCUTS, shortcutLabel } from '@shared/shortcuts'
 import { registerExportRequestIpc } from './export-requests'
+import { replayBuffer } from './replay'
 import { acquireSingleInstanceLock, releaseServerSpawn } from './server-lock'
 import { durationOf } from './duration'
 import { createExportSink } from './export-sink'
@@ -128,6 +129,55 @@ async function recordRegion(): Promise<void> {
   await session.start(defaultRequest({ kind: 'region', displayId: picked.displayId, region: picked.region }))
 }
 
+/**
+ * Save what the replay buffer holds, and say so. A notification rather than a
+ * dialog: this is pressed mid-work, and the answer matters more than attention.
+ */
+async function saveReplayNow(): Promise<void> {
+  if (!replayBuffer.running) {
+    if (Notification.isSupported()) {
+      new Notification({ title: 'ScreenPolish', body: 'No replay buffer is running. Start one from the tray.', silent: true }).show()
+    }
+    return
+  }
+  try {
+    const { clip } = await replayBuffer.save()
+    if (!Notification.isSupported()) return
+    new Notification({
+      title: 'ScreenPolish',
+      body: clip ? `Saved ${path.basename(clip)}` : 'The replay was asked for but no clip appeared.',
+      silent: true
+    }).show()
+  } catch (err) {
+    reportError('Could not save the replay', err)
+  }
+}
+
+/** Seconds the tray's one-click buffer holds. Long enough to catch what just happened. */
+const TRAY_REPLAY_SECONDS = 30
+
+async function startReplayBuffer(): Promise<void> {
+  try {
+    await replayBuffer.start({
+      root: recordingsRoot(),
+      displayBounds: screen.getPrimaryDisplay().bounds,
+      seconds: TRAY_REPLAY_SECONDS,
+      fps: loadRecordDefaults().fps
+    })
+    tray?.update(session.state)
+    if (Notification.isSupported()) {
+      const keys = loadSettings().shortcuts ?? DEFAULT_SHORTCUTS
+      new Notification({
+        title: 'ScreenPolish',
+        body: `Holding the last ${TRAY_REPLAY_SECONDS} seconds. Press ${shortcutLabel(keys.saveReplay)} to keep them.`,
+        silent: true
+      }).show()
+    }
+  } catch (err) {
+    reportError('Could not start the replay buffer', err)
+  }
+}
+
 function toggleRecording(): void {
   const status = session.state.status
   if (status === 'idle') recordPrimaryScreen().catch((err) => reportError('Could not start recording', err))
@@ -170,7 +220,8 @@ async function main(): Promise<void> {
   const applyShortcuts = shortcutManager(shortcutRegistry, {
     record: toggleRecording,
     pause: () => session.togglePause(),
-    stop: () => { if (session.isActive) session.stop().catch((err) => reportError('Could not stop recording', err)) }
+    stop: () => { if (session.isActive) session.stop().catch((err) => reportError('Could not stop recording', err)) },
+    saveReplay: () => { void saveReplayNow() }
   })
   registerEditorIpc({ session, exportSink, root: recordingsRoot, musicRoot: defaultMusicRoot, getEditorWindow, durationOf, pickRegion, ffmpegPath,
     whisper: () => whisperFiles({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, appPath: app.getAppPath(), platform: process.platform }),
@@ -183,7 +234,10 @@ async function main(): Promise<void> {
     stop: () => session.stop().catch((err) => reportError('Could not stop recording', err)),
     togglePause: () => session.togglePause(),
     openLibrary: () => openEditor(''),
-
+    startReplay: () => { void startReplayBuffer() },
+    saveReplay: () => { void saveReplayNow() },
+    stopReplay: () => { void replayBuffer.stop().then(() => tray?.update(session.state)) },
+    replayRunning: () => replayBuffer.running,
     quit: () => app.quit()
   })
 

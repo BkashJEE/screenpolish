@@ -28,6 +28,12 @@ export interface TrayActions {
   stop: () => void
   togglePause: () => void
   openLibrary: () => void
+  /** Replay buffer: hold the last N seconds, save what is held, stop holding. */
+  startReplay: () => void
+  saveReplay: () => void
+  stopReplay: () => void
+  /** Whether a buffer is currently running, read when the menu is rebuilt. */
+  replayRunning: () => boolean
 
   quit: () => void
 }
@@ -90,6 +96,15 @@ export function createTray(actions: TrayActions): TrayHandle {
           enabled: recording,
           click: actions.togglePause
         },
+        { type: 'separator' },
+        // The replay buffer cannot share the screen with a recording, so it is
+        // only offered when there is no take running.
+        ...(actions.replayRunning()
+          ? [
+              { label: `Save replay  ${shortcutLabel(shortcuts.saveReplay)}`, click: actions.saveReplay },
+              { label: 'Stop replay buffer', click: actions.stopReplay }
+            ]
+          : [{ label: 'Start replay buffer (30s)', enabled: idle, click: actions.startReplay }]),
         { type: 'separator' },
         { label: 'Open library', click: actions.openLibrary },
 

@@ -50,6 +50,53 @@ export function clipsIn(directory: string, readdir = fs.readdirSync, stat = fs.s
     .map((e) => e.file)
 }
 
+/**
+ * Wait for gsr to finish writing a clip it has just started.
+ *
+ * gsr creates the file first and fills it afterwards, so "a new file appeared"
+ * is not the same as "a clip is ready". Returning on the first sight of it
+ * handed back a path to a file still being written - fine for a ten second
+ * buffer that flushes at once, a truncated clip for a ten minute one.
+ *
+ * Done once the file has held the same non-zero size across `stablePolls`
+ * consecutive checks.
+ */
+export async function waitForFinishedClip(
+  directory: string,
+  before: ReadonlySet<string>,
+  opts: { timeoutMs?: number; pollMs?: number; stablePolls?: number } = {},
+  io: { list: (dir: string) => string[]; size: (file: string) => number; sleep: (ms: number) => Promise<void> } = {
+    list: (dir) => clipsIn(dir),
+    size: (file) => { try { return fs.statSync(file).size } catch { return -1 } },
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms))
+  }
+): Promise<string | null> {
+  const timeoutMs = opts.timeoutMs ?? 60_000
+  const pollMs = opts.pollMs ?? 250
+  const stablePolls = opts.stablePolls ?? 2
+  const deadline = Date.now() + timeoutMs
+  let clip: string | null = null
+  let lastSize = -1
+  let stable = 0
+  while (Date.now() < deadline) {
+    if (!clip) clip = io.list(directory).find((f) => !before.has(f)) ?? null
+    if (clip) {
+      const size = io.size(clip)
+      if (size > 0 && size === lastSize) {
+        stable += 1
+        if (stable >= stablePolls) return clip
+      } else {
+        stable = 0
+      }
+      lastSize = size
+    }
+    await io.sleep(pollMs)
+  }
+  // Out of time. A clip that exists but never settled is still worth naming,
+  // since the caller can look at it; one that never appeared is not.
+  return clip
+}
+
 export class ReplayBuffer {
   private gsr: GsrReplay | null = null
   private seconds = 0
@@ -100,12 +147,11 @@ export class ReplayBuffer {
    * Write what is held to a clip. gsr does this asynchronously, so the new file
    * is found by looking rather than by being told.
    */
-  async save(settleMs = 1500): Promise<{ clip: string | null; state: ReplayState }> {
+  async save(): Promise<{ clip: string | null; state: ReplayState }> {
     if (!this.gsr || !this.running) throw new Error('No replay buffer is running. Start one with `polish replay start --seconds N`.')
     const before = new Set(clipsIn(this.directory))
     this.gsr.save()
-    await new Promise((r) => setTimeout(r, settleMs))
-    const clip = clipsIn(this.directory).find((f) => !before.has(f)) ?? null
+    const clip = await waitForFinishedClip(this.directory, before)
     if (clip) this.savedCount += 1
     return { clip, state: this.state }
   }

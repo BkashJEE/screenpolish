@@ -192,8 +192,13 @@ export function closeHud(): void {
 let ghosts: BrowserWindow[] = []
 let ghostTimer: NodeJS.Timeout | null = null
 
-/** Slow safety net: forwarded mousemove stops while the pointer is over another always-on-top window. */
-const GHOST_FALLBACK_MS = 40
+/**
+ * The poll that keeps the ghost moving when forwarded mouse moves stop - which
+ * they do while the pointer is over another always-on-top window, including the
+ * recording HUD. At 40 ms it moved the ghost 25 times a second, visibly behind
+ * the hand; 16 ms is one frame at 60 Hz.
+ */
+const GHOST_FALLBACK_MS = 16
 
 export function openGhostCursor(skin: string = DEFAULT_CURSOR_SKIN): void {
   if (ghosts.length > 0) return

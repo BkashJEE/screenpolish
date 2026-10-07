@@ -155,23 +155,24 @@
         <circle cx="0" cy="0" r="1.5" fill="#ffffff" stroke="#14161c" stroke-width="0.9" />
       </svg>
     </div>
-    <script>
-      // Coordinates arrive two ways. Forwarded WM_MOUSEMOVE (setIgnoreMouseEvents
-      // with forward) is the fast path: it lands in this renderer at the native
-      // pointer rate with no IPC and no window move. The main process also pushes
-      // a slow poll so the sprite cannot get stranded if forwarding stops (a
-      // higher always-on-top window, a display change, a fresh page load).
+    <script type="module">
+      // Coordinates arrive two ways. Forwarded mouse moves are the fast path: they
+      // land in this renderer at the native pointer rate with no IPC. The main
+      // process also pushes a poll so the sprite cannot get stranded when
+      // forwarding stops. How the two hand over is decided in follow.ts.
+      import { placeFromPoll } from './follow.ts'
+
       const ghost = document.getElementById('ghost')
       const params = new URLSearchParams(location.hash.slice(1))
       const skin = params.get('skin') || 'hand'
-      const originX = Number(params.get('x') || 0)
-      const originY = Number(params.get('y') || 0)
+      const origin = { x: Number(params.get('x') || 0), y: Number(params.get('y') || 0) }
 
       const chosen = document.querySelector(`.skin[data-skin="${CSS.escape(skin)}"]`) || document.querySelector('.skin')
       if (chosen) chosen.classList.add('on')
 
       let lastLocal = 0
       function place(x, y) {
+        ghost.style.visibility = 'visible'
         ghost.style.transform = `translate3d(${x}px, ${y}px, 0)`
       }
 
@@ -180,11 +181,10 @@
         place(e.clientX, e.clientY)
       })
 
-      // Screen-space fallback: convert to this window's client space with the
-      // display origin main handed us in the hash.
       window.polishGhost?.onPoint((p) => {
-        if (performance.now() - lastLocal < 250) return
-        place(p.x - originX, p.y - originY)
+        const next = placeFromPoll(performance.now(), lastLocal, p, origin, { width: window.innerWidth, height: window.innerHeight })
+        if (next.action === 'place') place(next.x, next.y)
+        else if (next.action === 'hide') ghost.style.visibility = 'hidden'
       })
     </script>
   </body>

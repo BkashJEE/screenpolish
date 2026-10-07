@@ -166,6 +166,9 @@ export class GsrReplay {
   private child: ChildProcess | null = null
   private stderrTail = ''
 
+  /** Called once when gsr exits, whether asked to or not. */
+  onExit: (() => void) | null = null
+
   constructor(
     readonly bin: string,
     readonly args: string[],
@@ -185,6 +188,7 @@ export class GsrReplay {
     child.stderr?.on('data', (chunk: Buffer) => {
       this.stderrTail = (this.stderrTail + chunk.toString()).slice(-4000)
     })
+    child.once('exit', () => this.onExit?.())
     await new Promise((r) => setTimeout(r, settleMs))
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(`gpu-screen-recorder could not hold a replay buffer: ${this.stderrTail.trim().split('\n').at(-1) ?? 'it exited'}`)

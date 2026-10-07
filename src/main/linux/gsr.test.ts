@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as path from 'node:path'
-import { MAX_REPLAY_SECONDS, MIN_REPLAY_SECONDS, findGsr, gsrArgs, gsrReplayArgs, monitorContaining, monitorForBounds, monitorLogicalRect, parseFirstFrameTs, planNativeCapture, regionTarget } from './gsr'
+import { GsrReplay, MAX_REPLAY_SECONDS, MIN_REPLAY_SECONDS, findGsr, gsrArgs, gsrReplayArgs, monitorContaining, monitorForBounds, monitorLogicalRect, parseFirstFrameTs, planNativeCapture, regionTarget } from './gsr'
 
 // This machine: one 3440x1440 ultrawide at 1.25, so 2752x1152 logical.
 const ultrawide = { name: 'HDMI-A-2', x: 0, y: 0, width: 3440, height: 1440, scale: 1.25 }
@@ -124,5 +124,33 @@ describe('gsrReplayArgs', () => {
   it('rounds a fractional length rather than passing it on', () => {
     const args = gsrReplayArgs({ ...base, seconds: 30.6 })
     expect(args[args.indexOf('-r') + 1]).toBe('31')
+  })
+})
+
+describe('GsrReplay reports its own exit', () => {
+  /** A child process that stays up until told to die, like gsr holding a buffer. */
+  function fakeChild() {
+    const handlers: Record<string, Array<() => void>> = {}
+    const child = {
+      exitCode: null as number | null,
+      signalCode: null as string | null,
+      stderr: { on: () => undefined },
+      once: (event: string, fn: () => void) => { (handlers[event] ??= []).push(fn) },
+      kill: () => true,
+      die(code = 1) { child.exitCode = code; for (const fn of handlers.exit ?? []) fn() }
+    }
+    return child
+  }
+
+  it('says so when gsr dies without being asked - a crash must not be invisible', async () => {
+    const child = fakeChild()
+    const replay = new GsrReplay('gsr', [], '/tmp/never-written', (() => child) as never)
+    let exited = 0
+    replay.onExit = () => { exited += 1 }
+    await replay.start(0)
+    expect(replay.running).toBe(true)
+    child.die()
+    expect(exited).toBe(1)
+    expect(replay.running).toBe(false)
   })
 })

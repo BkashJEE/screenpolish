@@ -98,6 +98,12 @@ export async function waitForFinishedClip(
 }
 
 export class ReplayBuffer {
+  /**
+   * Told whenever the buffer starts, stops, or dies. The tray menu used to be
+   * rebuilt only on recording changes, so a buffer started by an agent left it
+   * still offering "Start", and one that crashed left it offering "Save".
+   */
+  onChange: (() => void) | null = null
   private gsr: GsrReplay | null = null
   private seconds = 0
   private directory = ''
@@ -135,11 +141,17 @@ export class ReplayBuffer {
     const directory = replayDirectory(opts.root)
     const args = gsrReplayArgs({ target: plan.target, fps: opts.fps, seconds: opts.seconds, directory })
     const gsr = new GsrReplay(bin, args, directory)
+    // gsr can die without being asked - out of memory, a monitor unplugged.
+    gsr.onExit = () => {
+      if (this.gsr === gsr) this.gsr = null
+      this.onChange?.()
+    }
     await gsr.start()
     this.gsr = gsr
     this.directory = directory
     this.seconds = opts.seconds
     this.savedCount = 0
+    this.onChange?.()
     return this.state
   }
 
@@ -157,8 +169,10 @@ export class ReplayBuffer {
   }
 
   async stop(): Promise<ReplayState> {
-    if (this.gsr) await this.gsr.stop()
+    const gsr = this.gsr
     this.gsr = null
+    if (gsr) await gsr.stop()
+    this.onChange?.()
     return this.state
   }
 }

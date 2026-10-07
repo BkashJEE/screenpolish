@@ -13,6 +13,7 @@ import { shortcutManager, shouldRegisterGlobalShortcuts } from './shortcuts'
 import { DEFAULT_SHORTCUTS, shortcutLabel } from '@shared/shortcuts'
 import { registerExportRequestIpc } from './export-requests'
 import { replayBuffer } from './replay'
+import { findGsr } from './linux/gsr'
 import { acquireSingleInstanceLock, releaseServerSpawn } from './server-lock'
 import { durationOf } from './duration'
 import { createExportSink } from './export-sink'
@@ -153,6 +154,13 @@ async function saveReplayNow(): Promise<void> {
   }
 }
 
+/**
+ * The replay buffer rides gpu-screen-recorder, so it exists on Linux with gsr
+ * installed and nowhere else. Asked once: the answer does not change while the
+ * app runs, and the tray asks every time it rebuilds its menu.
+ */
+const REPLAY_AVAILABLE = process.platform === 'linux' && findGsr() !== null
+
 /** Seconds the tray's one-click buffer holds. Long enough to catch what just happened. */
 const TRAY_REPLAY_SECONDS = 30
 
@@ -221,7 +229,8 @@ async function main(): Promise<void> {
     record: toggleRecording,
     pause: () => session.togglePause(),
     stop: () => { if (session.isActive) session.stop().catch((err) => reportError('Could not stop recording', err)) },
-    saveReplay: () => { void saveReplayNow() }
+    // Only where the buffer can exist; elsewhere the key is left to other apps.
+    ...(REPLAY_AVAILABLE ? { saveReplay: () => { void saveReplayNow() } } : {})
   })
   registerEditorIpc({ session, exportSink, root: recordingsRoot, musicRoot: defaultMusicRoot, getEditorWindow, durationOf, pickRegion, ffmpegPath,
     whisper: () => whisperFiles({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, appPath: app.getAppPath(), platform: process.platform }),
@@ -238,6 +247,7 @@ async function main(): Promise<void> {
     saveReplay: () => { void saveReplayNow() },
     stopReplay: () => { void replayBuffer.stop().then(() => tray?.update(session.state)) },
     replayRunning: () => replayBuffer.running,
+    replayAvailable: () => REPLAY_AVAILABLE,
     quit: () => app.quit()
   })
 

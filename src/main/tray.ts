@@ -34,6 +34,11 @@ export interface TrayActions {
   stopReplay: () => void
   /** Whether a buffer is currently running, read when the menu is rebuilt. */
   replayRunning: () => boolean
+  /**
+   * Whether this machine can hold a replay buffer at all. Where it cannot, the
+   * entries are left out rather than offered and then refused.
+   */
+  replayAvailable: () => boolean
 
   quit: () => void
 }
@@ -99,13 +104,15 @@ export function createTray(actions: TrayActions): TrayHandle {
         { type: 'separator' },
         // The replay buffer cannot share the screen with a recording, so it is
         // only offered when there is no take running.
-        ...(actions.replayRunning()
-          ? [
-              { label: `Save replay  ${shortcutLabel(shortcuts.saveReplay)}`, click: actions.saveReplay },
-              { label: 'Stop replay buffer', click: actions.stopReplay }
-            ]
-          : [{ label: 'Start replay buffer (30s)', enabled: idle, click: actions.startReplay }]),
-        { type: 'separator' },
+        ...(!actions.replayAvailable()
+          ? []
+          : actions.replayRunning()
+            ? [
+                { label: `Save replay  ${shortcutLabel(shortcuts.saveReplay)}`, click: actions.saveReplay },
+                { label: 'Stop replay buffer', click: actions.stopReplay },
+                { type: 'separator' as const }
+              ]
+            : [{ label: 'Start replay buffer (30s)', enabled: idle, click: actions.startReplay }, { type: 'separator' as const }]),
         { label: 'Open library', click: actions.openLibrary },
 
         { type: 'separator' },

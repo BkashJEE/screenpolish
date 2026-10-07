@@ -15,11 +15,38 @@ export function shouldRegisterGlobalShortcuts(args: { packaged: boolean; env?: N
   return (args.env ?? process.env).POLISH_DEV_SHORTCUTS === '1'
 }
 
-export function shortcutManager(registry: Registry, handlers: Record<keyof RecordingShortcuts, () => void>) {
+/**
+ * The hotkeys recording cannot do without. A conflict on one of these is worth
+ * stopping for, because without it the user cannot start or stop a take.
+ */
+export const ESSENTIAL_SHORTCUTS: ReadonlyArray<keyof RecordingShortcuts> = ['record', 'pause', 'stop']
+
+type Essential = 'record' | 'pause' | 'stop'
+export type ShortcutHandlers = Record<Essential, () => void> & Partial<Record<Exclude<keyof RecordingShortcuts, Essential>, () => void>>
+
+/**
+ * Register the hotkeys.
+ *
+ * An optional action with no handler is not registered at all - the replay
+ * shortcut on a platform without a replay buffer. Grabbing a global key for a
+ * feature that cannot run there would only take it away from every other app.
+ *
+ * An optional action whose key is already taken is skipped rather than fatal.
+ * Every shortcut used to be treated as essential, so one conflict on the replay
+ * key aborted the lot - and on a first start, with nothing to fall back to, that
+ * left record, pause and stop all unregistered.
+ */
+export function shortcutManager(registry: Registry, handlers: ShortcutHandlers, warn: (message: string) => void = console.warn) {
   let current: RecordingShortcuts | null = null
   const register = (keys: RecordingShortcuts) => {
     for (const action of Object.keys(keys) as Array<keyof RecordingShortcuts>) {
-      if (!registry.register(keys[action], handlers[action])) throw new Error(`Shortcut ${keys[action]} is unavailable. Choose another combination or check the desktop shortcut portal.`)
+      const handler = handlers[action]
+      if (!handler) continue
+      if (registry.register(keys[action], handler)) continue
+      if (ESSENTIAL_SHORTCUTS.includes(action)) {
+        throw new Error(`Shortcut ${keys[action]} is unavailable. Choose another combination or check the desktop shortcut portal.`)
+      }
+      warn(`[shortcuts] ${keys[action]} for ${action} is taken by another app; carrying on without it`)
     }
   }
   return (keys: RecordingShortcuts = DEFAULT_SHORTCUTS) => {

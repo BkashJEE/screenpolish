@@ -56,3 +56,42 @@ jobs:
             release/*.AppImage
             release/*.pacman
           if-no-files-found: error
+
+  # Attach the installers to the release from here, on GitHub's own network.
+  #
+  # They used to be downloaded to a maintainer's machine and uploaded back by
+  # hand: about 2.3 GB each way. On a home connection that is an hour of
+  # uploading, and three releases' worth of interruptions left one stuck as a
+  # draft with three of its seven files. Doing it here takes minutes.
+  #
+  # The release is left as a draft. Nothing reaches users until someone has
+  # looked at it and published it on purpose.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Attach installers to a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ls -la dist
+          # Create the draft if it does not exist yet; reuse it if it does, so a
+          # rebuilt tag replaces its files rather than failing.
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG" --notes "Draft: installers attached by CI. Write the notes, then publish."
+          gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          count=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
+          echo "attached $count installers"
+          # Seven is every platform and architecture. Fewer means something did
+          # not build, and a release missing a platform should be noticed here,
+          # not by the person who cannot download it.
+          [ "$count" -ge 7 ] || { echo "expected 7 installers, found $count"; exit 1; }

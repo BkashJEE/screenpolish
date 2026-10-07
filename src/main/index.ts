@@ -164,7 +164,6 @@ async function startReplayBuffer(): Promise<void> {
       seconds: TRAY_REPLAY_SECONDS,
       fps: loadRecordDefaults().fps
     })
-    tray?.update(session.state)
     if (Notification.isSupported()) {
       const keys = loadSettings().shortcuts ?? DEFAULT_SHORTCUTS
       new Notification({
@@ -228,6 +227,9 @@ async function main(): Promise<void> {
     applyShortcuts: (keys) => { applyShortcuts(keys); setTimeout(() => tray?.update(session.state), 0) }
   })
 
+  // However the buffer changes - the tray, the shortcut, the CLI, an agent over
+  // MCP, or gsr dying - the menu reflects it.
+  replayBuffer.onChange = () => tray?.update(session.state)
   tray = createTray({
     recordScreen: () => recordPrimaryScreen().catch((err) => reportError('Could not start recording', err)),
     recordRegion: () => recordRegion().catch((err) => reportError('Could not start recording', err)),
@@ -236,7 +238,7 @@ async function main(): Promise<void> {
     openLibrary: () => openEditor(''),
     startReplay: () => { void startReplayBuffer() },
     saveReplay: () => { void saveReplayNow() },
-    stopReplay: () => { void replayBuffer.stop().then(() => tray?.update(session.state)) },
+    stopReplay: () => { void replayBuffer.stop() },
     replayRunning: () => replayBuffer.running,
     quit: () => app.quit()
   })

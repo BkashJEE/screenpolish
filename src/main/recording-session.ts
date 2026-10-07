@@ -72,16 +72,43 @@ export function describeSource(request: StartRecordingRequest, display: Display,
 
 const LOW_DISK_BYTES = 2 * 1024 ** 3
 
+/**
+ * Below this a take is not started at all.
+ *
+ * The warning above used to be the only guard, and it only warned. On a full
+ * drive the recording began, the HUD showed a small note, and nothing could be
+ * written - the one failure a recorder must not have, because the person thinks
+ * they are capturing the moment and is not. A refusal they can act on beats a
+ * take that silently was never there.
+ */
+export const MIN_FREE_BYTES_TO_RECORD = 256 * 1024 ** 2
+
+/** Bytes free to this user on the drive holding `dir`, or null when it cannot be told. */
+export function freeBytes(dir: string, statfs: (p: string) => { bavail: number | bigint; bsize: number | bigint } = fs.statfsSync): number | null {
+  try {
+    const st = statfs(dir)
+    return Number(st.bavail) * Number(st.bsize)
+  } catch {
+    // statfs unsupported, or the folder does not exist yet.
+    return null
+  }
+}
+
+export type DiskVerdict = { action: 'record' } | { action: 'warn'; free: string } | { action: 'refuse'; free: string }
+
+/** What free space means for starting a take. Unknown space never blocks: that would be worse than the problem. */
+export function diskVerdict(free: number | null): DiskVerdict {
+  if (free === null) return { action: 'record' }
+  const shown = free < 1024 ** 3 ? `${Math.max(0, Math.round(free / 1024 ** 2))} MB` : `${(free / 1024 ** 3).toFixed(1)} GB`
+  if (free < MIN_FREE_BYTES_TO_RECORD) return { action: 'refuse', free: shown }
+  if (free < LOW_DISK_BYTES) return { action: 'warn', free: shown }
+  return { action: 'record' }
+}
+
 /** Human free-space string when the recordings drive has under 2 GB, else null. Best effort. */
 export function lowDiskWarning(folder: string): string | null {
-  try {
-    const st = fs.statfsSync(folder)
-    const free = Number(st.bavail) * Number(st.bsize)
-    if (free < LOW_DISK_BYTES) return `${(free / 1024 ** 3).toFixed(1)} GB`
-  } catch {
-    // statfs unsupported or folder missing; skip the warning
-  }
-  return null
+  const verdict = diskVerdict(freeBytes(folder))
+  return verdict.action === 'record' ? null : verdict.free
 }
 
 class Cancelled extends Error {
@@ -194,6 +221,14 @@ export class RecordingSession {
     // window to resize before the portal stream begins. Preserve the geometry
     // the user saw before that layout change so the selected stream still maps.
     const portalTargetsBeforePicker = listsThroughPortal() ? await snapshotCaptureTargets() : null
+    // Before anything is created, so a refused take leaves no empty folder behind.
+    const verdict = diskVerdict(freeBytes(recordingsRoot()))
+    if (verdict.action === 'refuse') {
+      throw new Error(
+        `Not enough free space to record: ${verdict.free} left on the drive that holds your recordings. ` +
+          'Free some space, or click the folder path in the Library to record onto another drive, then try again.'
+      )
+    }
     const folder = path.join(recordingsRoot(), formatFolderName(new Date()))
     fs.mkdirSync(folder, { recursive: true })
     const startMessage: CaptureStartMessage = {

@@ -23,6 +23,40 @@ export function remuxArgs(input: string, output: string): string[] {
 }
 
 /**
+ * Slowest copy speed a remux is given time for. It is a stream copy, so it
+ * runs at disk speed; this is a slow USB hard drive, with room to spare.
+ */
+export const REMUX_MIN_BYTES_PER_SEC = 20 * 1024 ** 2
+
+/**
+ * How long a remux of `bytes` may take before it counts as hung. A fixed limit
+ * was fine for a short take and wrong for an hour of 60 fps at 3440x1440,
+ * which can be several gigabytes: the take was saved "without that step" while
+ * ffmpeg was still writing it.
+ */
+export function remuxTimeoutMs(bytes: number, baseMs: number): number {
+  const size = Number.isFinite(bytes) && bytes > 0 ? bytes : 0
+  return baseMs + Math.ceil((size / REMUX_MIN_BYTES_PER_SEC) * 1000)
+}
+
+/**
+ * Remux into a side file and give it the real name only once it is whole.
+ * ffmpeg writing straight to screen.mp4 left a truncated file, with no index,
+ * whenever it died part way (a full disk, say) — and that file looked like a
+ * finished take.
+ */
+export async function remuxFile(ffmpeg: string, input: string, output: string, run = runFfmpeg): Promise<void> {
+  const tmp = `${output}.remux.mp4`
+  try {
+    await run(ffmpeg, remuxArgs(input, tmp))
+    fs.renameSync(tmp, output)
+  } catch (err) {
+    fs.rmSync(tmp, { force: true })
+    throw err
+  }
+}
+
+/**
  * ffmpeg arguments that shift a track to start `offsetMs` later (positive:
  * pad the start) or earlier (negative: drop its first moments), or null when
  * it is already within ALIGN_THRESHOLD_MS.

@@ -36,7 +36,7 @@ import { bitrateFor, cropForRegion, regionForDisplay } from './region-math'
 import { displayById, findPortalSource, findScreenSource, findWindowSource, listsThroughPortal, windowRegion } from './sources'
 import { resolveCaptureTarget, shouldTrackPortalInput, snapshotCaptureTargets, windowOnScreen, type HyprClient, type HyprMonitor, type IdentifyWindow } from './linux/capture-target'
 import { GsrRecording, findGsr, gsrArgs, planNativeCapture, type GsrMonitor } from './linux/gsr'
-import { alignFile, remuxArgs, rescaleEvents, runFfmpeg, videoSize } from './linux/gsr-finish'
+import { alignFile, remuxFile, remuxTimeoutMs, rescaleEvents, videoSize } from './linux/gsr-finish'
 import { FINGERPRINT_CAPTURE_TIMEOUT_MS, FINGERPRINT_CAPTURE_WIDTH, windowJpeg } from './linux/window-previews'
 import { FINGERPRINT_HEIGHT, FINGERPRINT_WIDTH, fingerprintFromPixels, pickByFingerprint } from '@shared/frame-fingerprint'
 import { cursorBakedIntoCapture } from './capture-cursor'
@@ -54,6 +54,30 @@ const CAPTURE_KEYS = new Set<string>(Object.keys(FILE_FOR_KEY))
 export const FINALIZE_TIMEOUT_MS = 10_000
 /** Longest any single finalizing step may take before the take is saved without it. */
 export const FINALIZE_STEP_TIMEOUT_MS = 20_000
+
+/** What gpu-screen-recorder writes; remuxed to screen.mp4 when the take ends. */
+export const NATIVE_SCREEN_FILE = 'screen.mkv'
+
+/**
+ * What a finished take left on disk: a playable screen.mp4, only gsr's
+ * screen.mkv (the remux failed or ran out of time), or nothing worth keeping.
+ */
+export type KeptTake = 'mp4' | 'mkv' | null
+
+export function keptTake(folder: string, size: (file: string) => number = fileSize): KeptTake {
+  if (size(path.join(folder, FILE_FOR_KEY.screen)) > 0) return 'mp4'
+  if (size(path.join(folder, NATIVE_SCREEN_FILE)) > 0) return 'mkv'
+  return null
+}
+
+function fileSize(file: string): number {
+  try {
+    return fs.statSync(file).size
+  } catch {
+    return 0
+  }
+}
+
 // Wayland's portal picker is interactive and may sit open while the user finds
 // the right window. Do not misreport a slow selection as a capture failure.
 export const START_TIMEOUT_MS = 120_000
@@ -604,11 +628,11 @@ export class RecordingSession {
    * on the same promise — the app could only be killed. A step that hangs now
    * costs the take that step, and nothing else.
    */
-  private async step<T>(work: Promise<T> | undefined, what: string): Promise<T | undefined> {
+  private async step<T>(work: Promise<T> | undefined, what: string, timeoutMs = FINALIZE_STEP_TIMEOUT_MS): Promise<T | undefined> {
     if (!work) return undefined
-    const settled = await withTimeout(work, FINALIZE_STEP_TIMEOUT_MS)
+    const settled = await withTimeout(work, timeoutMs)
     if (settled === TIMED_OUT) {
-      console.warn(`[recording] ${what} did not finish in ${FINALIZE_STEP_TIMEOUT_MS} ms; saving the take without it`)
+      console.warn(`[recording] ${what} did not finish in ${timeoutMs} ms; saving the take without it`)
       this.onWarning?.(`${what} did not finish in time; the recording was saved without that step.`)
       return undefined
     }
@@ -631,15 +655,18 @@ export class RecordingSession {
       await this.step(audioStopped, 'The system audio track')
       if (rec.native) {
         await this.step(nativeStopped, 'The recorder')
-        events = (await this.step(this.finishNative(rec, rec.native, events), 'Converting the take')) ?? events
+        const timeout = remuxTimeoutMs(fileSize(rec.native.output), FINALIZE_STEP_TIMEOUT_MS)
+        events = (await this.step(this.finishNative(rec, rec.native, events), 'Converting the take', timeout)) ?? events
       }
     } catch (err) {
       console.error('[recording] finalizing failed', err)
       this.onWarning?.(`Finishing the recording failed (${String(err)}); the take was kept as it is.`)
     }
-    const screenFile = path.join(rec.folder, FILE_FOR_KEY.screen)
-    const hasVideo = fs.existsSync(screenFile) && fs.statSync(screenFile).size > 0
-    if (hasVideo) {
+    // A folder holding only screen.mkv is still a take: it is the one copy when
+    // the remux failed, and removing it here once deleted the recording a
+    // moment after the warning said it was kept.
+    const kept = keptTake(rec.folder)
+    if (kept) {
       try {
         fs.writeFileSync(path.join(rec.folder, 'events.json'), JSON.stringify(events))
         const projectPath = path.join(rec.folder, 'project.json')
@@ -662,8 +689,12 @@ export class RecordingSession {
       // The last line of defence: idle again, whatever went wrong above.
       this.setState({ status: 'idle' })
     }
-    if (hasVideo) this.onFinished?.(rec.folder)
-    else this.onError?.('Recording stopped before any video was written')
+    if (kept === 'mp4') this.onFinished?.(rec.folder)
+    else if (kept === 'mkv') {
+      this.onError?.(
+        `The recording could not be converted to MP4, so it is not in the library. Nothing was lost: it is saved as ${path.join(rec.folder, NATIVE_SCREEN_FILE)}.`
+      )
+    } else this.onError?.('Recording stopped before any video was written')
   }
 
   /** Give up on a recording that never produced a started event (or was cancelled during countdown). */
@@ -727,7 +758,7 @@ export class RecordingSession {
     }
     const plan = planNativeCapture({ kind: src.kind, monitors, displayBounds: display.bounds, region: rec.region, window })
     if ('skip' in plan) return fallback(plan.skip)
-    const output = path.join(rec.folder, 'screen.mkv')
+    const output = path.join(rec.folder, NATIVE_SCREEN_FILE)
     const gsr = new GsrRecording(bin, gsrArgs({ target: plan.target, fps: request.fps, output }), output)
     try {
       const startedAt = await gsr.start()
@@ -746,7 +777,7 @@ export class RecordingSession {
     const screenFile = path.join(rec.folder, FILE_FOR_KEY.screen)
     if (!ffmpeg || !fs.existsSync(native.output)) return events
     try {
-      await runFfmpeg(ffmpeg, remuxArgs(native.output, screenFile))
+      await remuxFile(ffmpeg, native.output, screenFile)
       fs.rmSync(native.output, { force: true })
       fs.rmSync(`${native.output}.ts`, { force: true })
     } catch (err) {

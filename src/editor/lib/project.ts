@@ -1,6 +1,7 @@
 // Immutable Project editing helpers and presets. Pure, tested.
 
 import { BRAND_THEMES } from '../../brand'
+import { normalizeScenes } from '../../shared/scenes'
 import { DEFAULT_PROJECT, type Project } from '../../shared/types'
 import { DEFAULT_ZOOM_SOUND, type ZoomSoundSettings } from '../../shared/zoom-sound'
 import { CLICK_SOUND_STYLES, DEFAULT_CLICK_SOUND, type ClickSoundSettings } from '../../shared/click-sound'
@@ -95,7 +96,8 @@ export function normalizeProject(raw: Partial<Project> | null | undefined): Proj
     },
     webcam: { ...DEFAULT_PROJECT.webcam, ...(p.webcam ?? {}) },
     audio: { ...DEFAULT_PROJECT.audio, ...(p.audio ?? {}) },
-    overlays: Array.isArray(p.overlays) ? p.overlays.map((o) => ({ ...o, text: o.text ? { ...o.text } : undefined, shape: o.shape ? { ...o.shape } : undefined })) : []
+    overlays: Array.isArray(p.overlays) ? p.overlays.map((o) => ({ ...o, text: o.text ? { ...o.text } : undefined, shape: o.shape ? { ...o.shape } : undefined })) : [],
+    scenes: normalizeScenes(p.scenes)
   }
 }
 

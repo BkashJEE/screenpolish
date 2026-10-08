@@ -1,3 +1,4 @@
+import type { Scene } from './scenes'
 import { DEFAULT_WEBCAM_LOOK, type WebcamLook } from './webcam-look'
 import type { SpeedRegion } from './speed'
 import type { Cut } from './cuts'
@@ -218,6 +219,8 @@ export interface Project {
   webcam: { enabled: boolean; corner: WebcamCorner; size: number; round: boolean; reactive?: boolean; /** Absent in projects saved before the look existed. */ look?: WebcamLook }
   audio: { mic: boolean; system: boolean; micVolume: number; systemVolume: number; masterVolume: number; /** Legacy on/off from early window-tracking builds; migrated into cursor.clickSound. */ clickSounds?: boolean }
   overlays: Overlay[]
+  /** Animated cards before and after the recording. See shared/scenes.ts. */
+  scenes: Scene[]
 }
 
 export const DEFAULT_PROJECT: Project = {
@@ -241,7 +244,8 @@ export const DEFAULT_PROJECT: Project = {
   zoom: { enabled: true, scale: 2, auto: true, motion: 'cinematic', easeSec: 0.6, follow: 0.35, template: 'cinematic', manual: [], removedAuto: [], sound: { ...DEFAULT_ZOOM_SOUND } },
   webcam: { enabled: true, corner: 'br', size: 0.22, round: true, look: { ...DEFAULT_WEBCAM_LOOK } },
   audio: { mic: true, system: true, micVolume: 1, systemVolume: 1, masterVolume: 1 },
-  overlays: []
+  overlays: [],
+  scenes: []
 }
 
 /** Camera state for one output frame. cx,cy are region-relative physical px. */

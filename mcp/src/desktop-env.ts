@@ -12,7 +12,9 @@
  */
 
 import * as fs from 'node:fs'
-import * as path from 'node:path'
+// XDG_RUNTIME_DIR is a POSIX path, and this only runs on Linux; posix joins
+// keep the tests, which pass platform 'linux', true on a Windows runner too.
+import { posix as path } from 'node:path'
 
 export interface RuntimeDirReader {
   /** Entry names in a directory, or [] if it cannot be read. */

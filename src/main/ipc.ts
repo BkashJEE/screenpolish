@@ -1,8 +1,10 @@
 // Every EDITOR.* handler. Filesystem access is confined to the recordings root.
 
 import * as fs from 'node:fs'
+import { askAgent, availableAgents, loadUserAgents } from './plan-agents'
+import { extractPlan, normalizeTakeLook, planPrompt, type PlanContext, type PlanTurn } from '@shared/record-plan'
 import * as path from 'node:path'
-import { BrowserWindow, dialog, ipcMain, nativeImage, shell, type IpcMainInvokeEvent } from 'electron'
+import { BrowserWindow, app, dialog, ipcMain, nativeImage, shell, type IpcMainInvokeEvent } from 'electron'
 import {
   EDITOR,
   type AppSettings,
@@ -230,6 +232,30 @@ export function registerEditorIpc(deps: EditorIpcDeps): void {
 
   ipcMain.handle(EDITOR.exportBegin, (_e, request: ExportBeginRequest) => exportSink.begin(request))
   ipcMain.handle(EDITOR.captionsStatus, () => captionsStatus(deps.whisper()))
+
+  // Recording plans. The renderer names an agent by id; the command comes
+  // only from the built-ins or plan-agents.json, which nothing here writes.
+  const planAgentList = () => availableAgents(loadUserAgents(app.getPath('userData')))
+  ipcMain.handle(EDITOR.planAgents, () => planAgentList().map(({ id, name }) => ({ id, name })))
+  ipcMain.handle(EDITOR.askPlan, async (_e, agentId: string, context: PlanContext, history: PlanTurn[]) => {
+    const agent = planAgentList().find((a) => a.id === agentId)
+    if (!agent) throw new Error('That agent is not available on this machine.')
+    const turns = (Array.isArray(history) ? history : [])
+      .filter((t) => t && (t.role === 'user' || t.role === 'agent') && typeof t.text === 'string')
+      .map((t) => ({ role: t.role, text: t.text.slice(0, 4000) }))
+      .slice(-12)
+    if (!turns.some((t) => t.role === 'user')) throw new Error('Say what you want to record first.')
+    const ctx: PlanContext = {
+      screens: (Array.isArray(context?.screens) ? context.screens : []).slice(0, 8).map((sc) => ({ name: String(sc.name).slice(0, 120), width: Number(sc.width) || 0, height: Number(sc.height) || 0 })),
+      windows: (Array.isArray(context?.windows) ? context.windows : []).slice(0, 30).map((w) => String(w).slice(0, 120)),
+      hasMic: context?.hasMic === true,
+      hasWebcam: context?.hasWebcam === true
+    }
+    return extractPlan(await askAgent(agent, planPrompt(ctx, turns)))
+  })
+  ipcMain.handle(EDITOR.setNextTakeLook, (_e, look: unknown) => {
+    session.nextTakeLook = look === null ? null : normalizeTakeLook(look)
+  })
   ipcMain.handle(EDITOR.transcribe, async (event, folder: string, source: 'mic' | 'system') => {
     const inside = assertInsideRoot(deps.root(), folder)
     if (source !== 'mic' && source !== 'system') throw new Error(`Unknown audio source: ${String(source)}`)

@@ -26,3 +26,32 @@ describe('new recording project', () => {
     expect(mergeProject({ version: 1, zoom: oldZoom }).zoom.sound?.enabled).toBe(false)
   })
 })
+
+describe('a planned take', () => {
+  const look = {
+    scenes: [
+      { id: 'i', kind: 'intro' as const, style: 'bold' as const, title: 'Recording → GIF', durationSec: 3 },
+      { id: 'o', kind: 'outro' as const, style: 'calm' as const, title: 'Ready to share', durationSec: 3 }
+    ],
+    background: ['#1f2a44', '#6a3d9a'] as [string, string],
+    aspect: '9:16' as const
+  }
+
+  it('gets the plan’s cards, gradient background and shape, and is named by its intro', () => {
+    const p = newRecordingProject({ title: 'Firefox', fps: 30, cursorSkin: 'hand', look })
+    expect(p.scenes.map((s) => s.title)).toEqual(['Recording → GIF', 'Ready to share'])
+    expect(p.background).toEqual({ kind: 'gradient', colors: ['#1f2a44', '#6a3d9a'], angle: 135 })
+    expect(p.output.aspect).toBe('9:16')
+    expect(p.title).toBe('Recording → GIF')
+    // And it survives the editor's load.
+    expect(mergeProject(JSON.parse(JSON.stringify(p))).scenes).toHaveLength(2)
+  })
+
+  it('is an ordinary take without a plan', () => {
+    const p = newRecordingProject({ title: 'Firefox', fps: 30, cursorSkin: 'hand', look: null })
+    expect(p.scenes).toEqual([])
+    expect(p.background).toEqual(DEFAULT_PROJECT.background)
+    expect(p.output.aspect).toBe(DEFAULT_PROJECT.output.aspect)
+    expect(p.title).toBe('Firefox')
+  })
+})

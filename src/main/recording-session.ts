@@ -32,6 +32,7 @@ import { foregroundWindowTitle } from './win/foreground-title'
 import { recordingTitle } from './recording-title'
 import { serializeProject } from './project-io'
 import { newRecordingProject } from './new-recording-project'
+import type { PlanTakeLook } from '@shared/record-plan'
 import { bitrateFor, cropForRegion, regionForDisplay } from './region-math'
 import { displayById, findPortalSource, findScreenSource, findWindowSource, listsThroughPortal, windowRegion } from './sources'
 import { resolveCaptureTarget, shouldTrackPortalInput, snapshotCaptureTargets, windowOnScreen, type HyprClient, type HyprMonitor, type IdentifyWindow } from './linux/capture-target'
@@ -186,6 +187,11 @@ interface Active {
 export type StateListener = (state: RecordingState) => void
 
 export class RecordingSession {
+  /**
+   * Cards, background and shape a recording plan chose for the next take.
+   * Kept until a take actually lands, so a failed start does not lose it.
+   */
+  nextTakeLook: PlanTakeLook | null = null
   systemAudioEncoder: (() => string) | null = null
   private current: RecordingState = { status: 'idle' }
   private readonly listeners = new Set<StateListener>()
@@ -706,7 +712,9 @@ export class RecordingSession {
         fs.writeFileSync(path.join(rec.folder, 'events.json'), JSON.stringify(events))
         const projectPath = path.join(rec.folder, 'project.json')
         if (!fs.existsSync(projectPath)) {
-          fs.writeFileSync(projectPath, serializeProject(newRecordingProject({ title: rec.title ?? '', fps: rec.startMessage.fps, cursorSkin: getCursorSkin() })))
+          fs.writeFileSync(projectPath, serializeProject(newRecordingProject({ title: rec.title ?? '', fps: rec.startMessage.fps, cursorSkin: getCursorSkin(), look: this.nextTakeLook })))
+          // A plan applies to the take it was made for, and only once.
+          this.nextTakeLook = null
         }
       } catch (err) {
         console.error('[recording] writing sidecar files failed', err)

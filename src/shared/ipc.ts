@@ -166,6 +166,9 @@ export const EDITOR = {
   windowPreviews: 'polish:sources:previews',
   captureCapabilities: 'polish:capture:capabilities',
   captionsStatus: 'polish:captions:status',
+  planAgents: 'polish:plan:agents',
+  askPlan: 'polish:plan:ask',
+  setNextTakeLook: 'polish:plan:next-take',
   transcribe: 'polish:captions:transcribe',
   transcribeProgress: 'polish:captions:progress',
   listAudioDevices: 'polish:devices:audio',
@@ -317,6 +320,12 @@ export interface EditorBridge {
   captureCapabilities: () => Promise<{ cursorFree: boolean }>
   /** Whether the bundled speech engine and model are present on this build; `reason` says what is missing. */
   captionsStatus: () => Promise<CaptionsStatus>
+  /** Agents installed here that can plan a recording. */
+  planAgents: () => Promise<Array<{ id: string; name: string }>>
+  /** Ask one agent for a plan; the agent is named by id, never by command. */
+  askPlan: (agentId: string, context: import('./record-plan').PlanContext, history: import('./record-plan').PlanTurn[]) => Promise<{ plan: import('./record-plan').RecordPlan | null; message: string }>
+  /** The cards, background and shape for the next take, or null to clear them. */
+  setNextTakeLook: (look: import('./record-plan').PlanTakeLook | null) => Promise<void>
   /** Transcribe a recording's mic or system audio locally; resolves with caption cues. */
   transcribe: (folder: string, source: 'mic' | 'system') => Promise<CaptionCue[]>
   /** 0..1 while transcribe runs. Returns an unsubscribe. */

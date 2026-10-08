@@ -32,7 +32,7 @@ jobs:
       # Linux never loads it, but electron-builder still rebuilds it, and
       # without them the whole Linux package fails to build.
       - if: matrix.name == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y libarchive-tools libx11-dev libxrandr-dev libxtst-dev libxt-dev
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools libx11-dev libxrandr-dev libxtst-dev libxt-dev zstd
       # Captions: whisper-cli and the checksummed English model into
       # vendor/whisper, which every package ships as resources/whisper. Linux
       # and macOS build it from the pinned source tarball; Windows takes
@@ -46,6 +46,18 @@ jobs:
       - run: ${{ matrix.build }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # The one-command Linux install in the README downloads
+      # releases/latest/download/ScreenPolish-installer.run. It is built here,
+      # from this build's AppImage and pacman package, under a name with no
+      # version in it so that link keeps working release after release. v0.4.0
+      # shipped without it and the README's install command returned 404.
+      - if: matrix.name == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/make-installer.sh --app release/ScreenPolish-*.AppImage --pacman release/ScreenPolish-*.pacman --out release
+          mv release/ScreenPolish-*-installer.run release/ScreenPolish-installer.run
+          release/ScreenPolish-installer.run --version
       - uses: actions/upload-artifact@v4
         with:
           name: screenpolish-${{ matrix.name }}
@@ -55,6 +67,7 @@ jobs:
             release/*.zip
             release/*.AppImage
             release/*.pacman
+            release/*.run
           if-no-files-found: error
 
   # Attach the installers to the release from here, on GitHub's own network.
@@ -88,10 +101,15 @@ jobs:
           # rebuilt tag replaces its files rather than failing.
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG" --notes "Draft: installers attached by CI. Write the notes, then publish."
+          # Checksums, so a download can be checked against what CI built.
+          (cd dist && sha256sum -- * > SHA256SUMS.txt)
           gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
           count=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')
-          echo "attached $count installers"
-          # Seven is every platform and architecture. Fewer means something did
+          echo "attached $count files"
+          # Seven installers for every platform and architecture, the Linux
+          # one-command installer, and the checksums. Fewer means something did
           # not build, and a release missing a platform should be noticed here,
           # not by the person who cannot download it.
-          [ "$count" -ge 7 ] || { echo "expected 7 installers, found $count"; exit 1; }
+          [ "$count" -ge 9 ] || { echo "expected 9 files, found $count"; exit 1; }
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx 'ScreenPolish-installer.run' \
+            || { echo "the README's Linux installer is missing"; exit 1; }

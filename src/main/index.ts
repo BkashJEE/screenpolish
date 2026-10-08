@@ -21,6 +21,7 @@ import { registerEditorIpc } from './ipc'
 import { whisperFiles } from './captions'
 import { recordingsRoot, registerMediaProtocol, registerMediaScheme } from './media-protocol'
 import { loadRecordDefaults, resolveDeviceChoice } from './record-defaults'
+import { removeStateFile, writeStateFile } from './state-file'
 import { preloadInputHook } from './input-logger'
 import { recordingSession } from './recording-session'
 import { runSelfTest, selfTestRequested } from './selftest'
@@ -61,6 +62,8 @@ const isCliClient = looksLikeCli(argv) && !selfTestRequested()
 // refusal does not mean another server owns it. Quitting on the first refusal
 // is what made a freshly spawned server vanish and the command time out.
 const gotLock = isCliClient ? false : acquireSingleInstanceLock(() => app.requestSingleInstanceLock())
+/** Where the CLI's replies and the watchable state file live. */
+const cliDir = (): string => path.join(app.getPath('userData'), 'cli')
 if (isCliClient) {
   void runCliClient(argv)
 } else if (!gotLock) {
@@ -70,7 +73,7 @@ if (isCliClient) {
     void handleCliPayload(data, { session, durationOf })
   })
   // We are the server the client was waiting for; the next start need not wait.
-  releaseServerSpawn(path.join(app.getPath('userData'), 'cli'))
+  releaseServerSpawn(cliDir())
   app.whenReady().then(main).catch((err) => {
     console.error('[main] startup failed', err)
     dialog.showErrorBox('Polish failed to start', err instanceof Error ? err.stack ?? err.message : String(err))
@@ -253,7 +256,9 @@ async function main(): Promise<void> {
     quit: () => app.quit()
   })
 
+  writeStateFile(cliDir(), session.state, process.pid, session.lastFolder)
   session.onStateChange((state) => {
+    writeStateFile(cliDir(), state, process.pid, session.lastFolder)
     tray?.update(state)
     // Keep the editor out of the shot; openEditor brings it back when the recording lands.
     if (state.status === 'countdown' || state.status === 'recording') {
@@ -437,6 +442,7 @@ app.on('before-quit', (event) => {
 })
 
 app.on('will-quit', () => {
+  if (gotLock) removeStateFile(cliDir())
   globalShortcut.unregisterAll()
   restoreSystemCursor()
   tray?.destroy()

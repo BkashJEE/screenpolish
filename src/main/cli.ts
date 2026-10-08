@@ -70,7 +70,13 @@ export async function runCliClient(argv: string[]): Promise<never> {
 
   const replyId = randomUUID()
   const payload: CliPayload = { cli: argv, replyId }
-  const started = await ensureServer(payload)
+  // Asking whether anything is recording must not start the app: a status
+  // poll used to bring ScreenPolish back seconds after it was quit.
+  const started = await ensureServer(payload, command.kind !== 'status')
+  if (!started && command.kind === 'status') {
+    print({ ok: true, running: false, state: { status: 'idle' }, lastFolder: null })
+    return exit(0)
+  }
   if (!started) {
     print({ ok: false, error: 'Could not start the Polish server instance' })
     return exit(1)
@@ -116,9 +122,10 @@ function exit(code: number): never {
  * `payload` through its second-instance event. If nobody holds the lock, we
  * spawn a detached server and hand over.
  */
-async function ensureServer(payload: CliPayload): Promise<boolean> {
+async function ensureServer(payload: CliPayload, spawnIfMissing = true): Promise<boolean> {
   if (!app.requestSingleInstanceLock(payload)) return true
   app.releaseSingleInstanceLock()
+  if (!spawnIfMissing) return false
   // Only one client gets to start a server. Without this, three CLI calls in a
   // row each found no server and each spawned one, leaving three live apps.
   if (claimServerSpawn(replyDir())) spawnServer()
@@ -239,7 +246,7 @@ export async function executeCli(command: CliCommand, ctx: CliContext): Promise<
     case 'help':
       return { ok: true, help: HELP }
     case 'status':
-      return { ok: true, state: session.state, lastFolder: session.lastFolder }
+      return { ok: true, running: true, state: session.state, lastFolder: session.lastFolder }
     case 'list': {
       const recordings: RecordingSummary[] = await listRecordings(recordingsRoot(), ctx.durationOf)
       return { ok: true, root: recordingsRoot(), recordings }

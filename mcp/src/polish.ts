@@ -10,6 +10,7 @@ import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import * as path from 'node:path'
+import { withDesktopSession } from './desktop-env.js'
 
 export type PolishResult = { ok: true; [key: string]: unknown } | { ok: false; error: string }
 
@@ -55,7 +56,7 @@ export class PolishError extends Error {}
 export async function runPolish(args: string[], timeoutMs = DEFAULT_TIMEOUT_MS): Promise<Record<string, unknown>> {
   const bin = polishBinary()
   const { stdout, failure } = await new Promise<{ stdout: string; failure: Error | null }>((resolve) => {
-    execFile(bin, args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 }, (err, out) => {
+    execFile(bin, args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, env: withDesktopSession(process.env) }, (err, out) => {
       resolve({ stdout: out ?? '', failure: err })
     })
   })

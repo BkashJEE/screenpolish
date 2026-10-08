@@ -9,5 +9,5 @@ export default defineConfig({
       '@render': resolve(__dirname, 'src/render')
     }
   },
-  test: { include: ['src/**/*.test.ts', 'src/**/*.test.tsx'], environment: 'node' }
+  test: { include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'mcp/src/**/*.test.ts'], environment: 'node' }
 })

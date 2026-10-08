@@ -17,6 +17,13 @@ all, and draws its own instead.
 curl -fsSL https://github.com/BkashJEE/screenpolish/releases/latest/download/ScreenPolish-installer.run -o screenpolish.run && chmod +x screenpolish.run && ./screenpolish.run
 ```
 
+**On Omarchy**, add the bar widget to start, stop and watch a recording without
+leaving the window you are recording:
+
+```bash
+omarchy plugin add https://github.com/BkashJEE/screenpolish-omarchy-plugin --enable
+```
+
 <p>
   <img src="docs/images/features/screenpolish.svg" width="49%" alt="ScreenPolish: Record. Polish. Export. Local, private and free, for Omarchy / Hyprland and Windows.">
   <img src="docs/images/features/auto-zoom.svg" width="49%" alt="Automatic zoom: zooms toward every click and glides back out, from the clicks recorded with the take.">

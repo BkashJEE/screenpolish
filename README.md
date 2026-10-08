@@ -7,6 +7,16 @@ upload, no telemetry — the recording never leaves your machine.
 On Omarchy and other Hyprland desktops it records without the system cursor at
 all, and draws its own instead.
 
+[![Latest release](https://img.shields.io/github/v/release/BkashJEE/screenpolish?label=release)](https://github.com/BkashJEE/screenpolish/releases/latest)
+[![MIT licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+
+**Linux, one command** (Windows and macOS installers are on the
+[releases page](https://github.com/BkashJEE/screenpolish/releases/latest)):
+
+```bash
+curl -fsSL https://github.com/BkashJEE/screenpolish/releases/latest/download/ScreenPolish-installer.run -o screenpolish.run && chmod +x screenpolish.run && ./screenpolish.run
+```
+
 <p>
   <img src="docs/images/features/screenpolish.svg" width="49%" alt="ScreenPolish: Record. Polish. Export. Local, private and free, for Omarchy / Hyprland and Windows.">
   <img src="docs/images/features/auto-zoom.svg" width="49%" alt="Automatic zoom: zooms toward every click and glides back out, from the clicks recorded with the take.">
@@ -39,8 +49,32 @@ all, and draws its own instead.
 - **Annotates**: blur or pixelate, arrows, highlight boxes, text and images.
 - **Exports** MP4 or GIF up to 2160p at 60 fps, in 16:9, 9:16, 1:1 or the
   source shape.
-- **Answers a command line** (`record`, `clip`, `export`), which makes it
-  scriptable and usable by agents.
+- **Adds intro and outro cards**: a title, a line under it and up to six
+  steps that arrive one by one, calm or bold, over the take's own background.
+- **Keeps the last 30 seconds** (Linux): a replay buffer holds the screen in
+  memory and a shortcut saves it, for the moment you did not know was coming.
+- **Answers a command line** (`record`, `clip`, `export`, `replay`), which
+  makes it scriptable.
+
+## Works with your AI agent
+
+**Plan before you record.** Tell the agent you already use what the video is
+for — *"a 30-second demo of exporting a GIF, for X"* — and it drafts the angle
+to record and why, the length, a shot list, the look and the intro and outro
+cards. Ask for changes, then **Apply** and it is all set up; press Record.
+Claude Code and Codex are found by themselves, any other command-line agent is
+one line in `plan-agents.json`. The agent runs with its tools off;
+ScreenPolish itself still sends nothing anywhere.
+
+**Let the agent film its own work.** An MCP server lets Claude Code or any MCP
+client start a recording, do the thing, stop, and get a polished MP4 back — or
+hold a replay buffer and save it when something interesting happens:
+
+```bash
+claude mcp add screenpolish -- node /path/to/screenpolish/mcp/dist/index.js
+```
+
+Setup for other clients is in [`mcp/README.md`](mcp/README.md).
 
 ## What differs by platform
 

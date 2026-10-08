@@ -6,6 +6,9 @@ import { describeScreenSize, describeSource, displayIdOf, type RecordSource } fr
 import { Camera, ChevronDown, ChevronRight, Mic, Record, Refresh, Region, Screen, Speaker, Spinner, Warning, WindowIcon } from './icons'
 import { Button, Chip, Count, Eyebrow, IconButton, Kbd, Row, Segmented, Select, Toggle, cx, type ChipTone } from './ui'
 import { ShortcutSettings } from './ShortcutSettings'
+import { PlanPanel } from './PlanPanel'
+import { applyPlan } from '../lib/plan-apply'
+import { takeLookOf, type RecordPlan } from '../../shared/record-plan'
 import { DEFAULT_SHORTCUTS, shortcutLabel } from '../../shared/shortcuts'
 
 interface RecordSettings {
@@ -168,6 +171,21 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
 
   const deviceLabel = (d: MediaDeviceInfo, i: number, kind: string) => d.label || `${kind} ${i + 1}`
 
+  // A plan sets the source, inputs and pointer here, and the cards, background
+  // and shape on the next take. Returns what it could not match, to show.
+  const applyRecordingPlan = async (plan: RecordPlan): Promise<string[]> => {
+    const result = applyPlan(plan, sources ?? [], { mic: settings.mic, system: settings.system, fps: settings.fps })
+    if (result.selection) setSelection(result.selection)
+    // 'auto' means the first microphone; the panel stores real device ids.
+    const mic = result.choices.mic === 'auto' ? (devices.mics[0]?.deviceId ?? '') : result.choices.mic
+    const notes = [...result.notes]
+    if (result.choices.mic === 'auto' && !mic) notes.push('The plan wants the microphone, but none was found.')
+    setSettings((s) => ({ ...s, ...result.choices, mic }))
+    if (result.cursorSkin) patchApp({ cursorSkin: result.cursorSkin })
+    await window.polish.setNextTakeLook(takeLookOf(plan))
+    return notes
+  }
+
   const status: { tone: ChipTone; label: string } =
     recording.status === 'recording'
       ? { tone: 'rec', label: 'Recording' }
@@ -194,6 +212,8 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
           </IconButton>
         </div>
       </div>
+
+      <PlanPanel sources={sources} hasMic={devices.mics.length > 0} hasWebcam={devices.cams.length > 0} onApply={applyRecordingPlan} disabled={!idle} />
 
       <div className="capture-settings min-h-0">
         {/* Source ------------------------------------------------------------ */}

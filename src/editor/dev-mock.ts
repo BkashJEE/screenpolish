@@ -172,6 +172,9 @@ export async function installMockBridge(): Promise<void> {
     windowPreviews: async () => ({}),
     captureCapabilities: async () => ({ cursorFree: true }),
     // ?no-captions shows the panel's state on a build without the engine.
+    planAgents: async () => [{ id: 'mock', name: 'Mock agent' }],
+    askPlan: async () => ({ plan: null, message: '[mock] No agent in a dev mock.' }),
+    setNextTakeLook: async () => undefined,
     captionsStatus: async () =>
       new URLSearchParams(location.search).has('no-captions')
         ? { installed: false, reason: 'Offline captions are not installed on this build. The speech engine (whisper-cli.exe) is not in C:\\ScreenPolish\\resources\\whisper.' }

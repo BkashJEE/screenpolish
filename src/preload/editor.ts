@@ -41,6 +41,9 @@ const bridge: EditorBridge = {
   windowPreviews: (ids) => ipcRenderer.invoke(EDITOR.windowPreviews, ids),
   captureCapabilities: () => ipcRenderer.invoke(EDITOR.captureCapabilities),
   captionsStatus: () => ipcRenderer.invoke(EDITOR.captionsStatus),
+  planAgents: () => ipcRenderer.invoke(EDITOR.planAgents),
+  askPlan: (agentId, context, history) => ipcRenderer.invoke(EDITOR.askPlan, agentId, context, history),
+  setNextTakeLook: (look) => ipcRenderer.invoke(EDITOR.setNextTakeLook, look),
   transcribe: (folder, source) => ipcRenderer.invoke(EDITOR.transcribe, folder, source),
   onTranscribeProgress: (handler) => {
     const listener = (_event: IpcRendererEvent, fraction: number): void => handler(fraction)

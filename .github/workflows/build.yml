@@ -48,14 +48,17 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       # The one-command Linux install in the README downloads
       # releases/latest/download/ScreenPolish-installer.run. It is built here,
-      # from this build's AppImage and pacman package, under a name with no
+      # from this build's AppImage, under a name with no
       # version in it so that link keeps working release after release. v0.4.0
       # shipped without it and the README's install command returned 404.
       - if: matrix.name == 'linux'
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/make-installer.sh --app release/ScreenPolish-*.AppImage --pacman release/ScreenPolish-*.pacman --out release
+          # AppImage only. With the pacman package as well it was 659 MB, twice
+          # the app, for a choice most people never see; Arch users can take the
+          # .pacman beside it, and the installer works the same from the AppImage.
+          bash scripts/make-installer.sh --app release/ScreenPolish-*.AppImage --out release
           mv release/ScreenPolish-*-installer.run release/ScreenPolish-installer.run
           release/ScreenPolish-installer.run --version
       - uses: actions/upload-artifact@v4

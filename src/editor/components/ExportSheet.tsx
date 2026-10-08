@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { exportDurationSec, sceneTimeline } from '../../shared/scenes'
 import type { ExportKind, LoadedProject } from '../../shared/ipc'
 import type { ExportQuality, OutputAspect, OutputHeight, Project } from '../../shared/types'
 import { outputSize } from '../../shared/layout'
@@ -51,7 +52,9 @@ export function ExportSheet(props: ExportSheetProps) {
   const videoSize = { width: loaded.events.region.width, height: loaded.events.region.height }
   const size = outputSize(project, videoSize)
   // Exported length: removed clips drop out and speed regions stretch or squeeze.
-  const seconds = Math.max(0, speedSpans(trim.start, trim.end, project.speedRegions, project.cuts).at(-1)?.outputEnd ?? 0)
+  const recordingSeconds = Math.max(0, speedSpans(trim.start, trim.end, project.speedRegions, project.cuts).at(-1)?.outputEnd ?? 0)
+  // Plus any intro and outro cards.
+  const seconds = exportDurationSec(sceneTimeline(project.scenes ?? [], recordingSeconds), recordingSeconds)
   const running = phase.kind === 'running'
   const cleanName = name.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
   const quality = project.output.quality ?? 'balanced'

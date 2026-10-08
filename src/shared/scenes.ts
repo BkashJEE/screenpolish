@@ -356,3 +356,44 @@ export function sceneLayout(scene: Scene, localSec: number, output: { width: num
 
   return { scrim: bold ? 0.5 : 0.3, elements, ...(accentBar ? { accentBar } : {}) }
 }
+
+// ---------------------------------------------------------------------------
+// Export
+
+/** What one output frame shows: a scene, or the recording at a time on its own output clock. */
+export type ExportFrame = { kind: 'scene'; scene: Scene; localSec: number } | { kind: 'recording'; recordingSec: number }
+
+/** Seconds the finished video runs: intros, the recording, outros. */
+export function exportDurationSec(timeline: SceneTimeline, recordingSec: number): number {
+  return timeline.introSec + Math.max(0, recordingSec) + timeline.outroSec
+}
+
+export function exportFrameAt(timeline: SceneTimeline, recordingSec: number, outputSec: number): ExportFrame {
+  const scene = sceneAt(timeline, outputSec)
+  if (scene) return { kind: 'scene', ...scene }
+  const t = outputSec - timeline.introSec
+  return { kind: 'recording', recordingSec: Math.min(Math.max(0, t), Math.max(0, recordingSec)) }
+}
+
+export interface OutputSpan {
+  start: number
+  end: number
+  rate: number
+}
+
+/**
+ * The recording's speed spans, moved to start after the intros, with a
+ * normal-speed span before and after for the scenes. The pitch-preserving
+ * mix needs spans that start at 0 and run without a gap to the very end, or
+ * it trims the outro's silence off and the audio ends before the video.
+ */
+export function spansWithScenes(spans: readonly OutputSpan[], timeline: SceneTimeline): OutputSpan[] {
+  const intro = timeline.introSec
+  const shifted = spans.map((s) => ({ start: s.start + intro, end: s.end + intro, rate: s.rate }))
+  const out: OutputSpan[] = []
+  if (intro > 0) out.push({ start: 0, end: intro, rate: 1 })
+  out.push(...shifted)
+  const last = shifted.at(-1)?.end ?? intro
+  if (timeline.outroSec > 0) out.push({ start: last, end: last + timeline.outroSec, rate: 1 })
+  return out
+}

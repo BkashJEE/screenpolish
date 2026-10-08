@@ -165,7 +165,7 @@ export function createExportSink(deps: ExportSinkDeps): ExportSink {
         const count = request.audioTrackCount ?? 0
         if (job.kind === 'mp4' && Number.isInteger(count) && count >= 1 && count <= 32) {
           const mixed = `${job.writePath}.${job.id}.mixed.mp4`
-          await runFfmpeg(deps.ffmpegPath(), ['-hide_banner', '-loglevel', 'error', '-i', job.writePath, '-filter_complex', audioMixFilter(count, request.audioSpeedSpans), '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', mixed])
+          await runFfmpeg(deps.ffmpegPath(), ['-hide_banner', '-loglevel', 'error', '-i', job.writePath, '-filter_complex', audioMixFilter(count, request.audioSpeedSpans, request.durationSec), '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', mixed])
           await fs.promises.rename(mixed, job.writePath)
         }
         if (job.kind === 'gif') {

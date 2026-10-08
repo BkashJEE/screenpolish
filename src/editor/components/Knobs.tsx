@@ -20,6 +20,7 @@ import { formatTime } from '../lib/time'
 import { ImageIcon, Trash, Undo, X } from './icons'
 import { SilencePanel } from './SilencePanel'
 import { CaptionsPanel } from './CaptionsPanel'
+import { ScenesPanel } from './ScenesPanel'
 import { INSPECTOR_TABS, inspectorTabCss, type InspectorTab } from '../lib/inspector-tabs'
 import { Button, Chip, ColorField, Kbd, NumberField, Row, Section, Segmented, Select, SliderField, Toggle, cx } from './ui'
 
@@ -233,6 +234,10 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
       </Section>
 
       {/* Background --------------------------------------------------------- */}
+      <Section title="Title cards" right={(project.scenes ?? []).length ? <Chip tone="ok">{(project.scenes ?? []).length}</Chip> : undefined}>
+        <ScenesPanel project={project} onProject={onProject} />
+      </Section>
+
       <Section title="Speed regions">
         <p className="text-[11px] text-fg-muted">Times refer to the original recording. Drag regions on their timeline lanes to move or resize.</p>
         <Row label="Preserve audio pitch"><Toggle label="Preserve audio pitch" checked={project.preserveAudioPitch !== false} onChange={preserveAudioPitch => onProject(project=>({...project,preserveAudioPitch}))} /></Row>

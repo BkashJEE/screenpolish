@@ -21,6 +21,7 @@
  * until something needs it.
  */
 
+import { spawn, type ChildProcess } from 'node:child_process'
 import * as fs from 'node:fs'
 import type { MouseButton } from '@shared/types'
 import { EV_KEY, EV_REL, decodeEvents, mapEvdevButton, wheelDyFromEvdev, eventNodesFrom } from './evdev'
@@ -44,17 +45,31 @@ export interface InputCapabilities {
   reason?: string
 }
 
+/** Mouse event nodes, from the kernel's device list. */
+export function mouseNodes(): string[] {
+  return eventNodesFrom(fs.readFileSync('/proc/bus/input/devices', 'utf8'), ['mouse'])
+}
+
+export interface InputSourceOptions {
+  /** Event nodes to read. Defaults to every mouse the kernel lists. */
+  devices?: () => string[]
+  /** Follow the pointer over Hyprland IPC. Defaults to on. */
+  pointer?: boolean
+}
+
 export class LinuxInputSource {
   private handlers: InputSourceHandlers | null = null
   private timer: NodeJS.Timeout | null = null
-  private streams: fs.ReadStream[] = []
+  private readers: ChildProcess[] = []
   private last: [number, number] = [0, 0]
   private polling = false
+
+  constructor(private readonly options: InputSourceOptions = {}) {}
 
   start(handlers: InputSourceHandlers): InputCapabilities {
     this.stop()
     this.handlers = handlers
-    const pointer = this.startPointer()
+    const pointer = this.options.pointer === false ? false : this.startPointer()
     const buttons = this.startDevices()
     const missing: string[] = []
     if (!pointer) missing.push('the compositor did not answer (Hyprland IPC unavailable), so there is no pointer path')
@@ -65,8 +80,8 @@ export class LinuxInputSource {
   stop(): void {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
-    for (const stream of this.streams) stream.destroy()
-    this.streams = []
+    for (const reader of this.readers) reader.kill()
+    this.readers = []
     this.handlers = null
   }
 
@@ -100,38 +115,53 @@ export class LinuxInputSource {
     return true
   }
 
+  /**
+   * Read each mouse through its own `cat`, not through Node's file streams.
+   *
+   * A read on an evdev node blocks until the device sends something, and Node
+   * runs blocking reads on its small shared thread pool (four threads), the same
+   * pool every asynchronous file operation in the app waits on. Destroying the
+   * stream does not end a read already in progress, so a quiet device — the
+   * "passthrough" nodes some receivers expose rarely send anything — kept its
+   * thread after the recording stopped. Two takes on a machine with three mouse
+   * nodes used up the pool for good: converting the next take timed out,
+   * exports sat at 0 bytes, and the app could not even exit.
+   *
+   * A child reads in its own process, Node only watches the pipe, and killing
+   * the child ends a read that is still waiting.
+   */
   private startDevices(): boolean {
     let nodes: string[]
     try {
-      nodes = eventNodesFrom(fs.readFileSync('/proc/bus/input/devices', 'utf8'), ['mouse'])
+      nodes = (this.options.devices ?? mouseNodes)()
     } catch {
       return false
     }
     for (const node of nodes) {
-      let fd: number | undefined
+      // Check permission here, so the recording-start warning is true; the
+      // child's own open would only fail later and silently.
       try {
-        // createReadStream opens asynchronously: counting it before `open`
-        // incorrectly advertised click capture even after EACCES. Open the
-        // mouse node first so the recording-start warning reflects permission.
-        fd = fs.openSync(node, 'r')
-        const stream = fs.createReadStream(node, { fd, autoClose: true })
-        fd = undefined // ownership transferred to the stream
-        let rest: Buffer = Buffer.alloc(0)
-        stream.on('data', (chunk) => {
-          const buf = typeof chunk === 'string' ? Buffer.from(chunk) : chunk
-          const decoded = decodeEvents(Buffer.concat([rest, buf]))
-          rest = decoded.rest
-          for (const event of decoded.events) this.dispatch(event.type, event.code, event.value)
-        })
-        // A device can disappear mid-recording (unplugged mouse); that must not crash the app.
-        stream.on('error', () => stream.destroy())
-        this.streams.push(stream)
+        fs.accessSync(node, fs.constants.R_OK)
       } catch {
-        if (fd !== undefined) fs.closeSync(fd)
-        // Unreadable node: keep trying the others.
+        continue
       }
+      let reader: ChildProcess
+      try {
+        reader = spawn('cat', [node], { stdio: ['ignore', 'pipe', 'ignore'] })
+      } catch {
+        continue
+      }
+      let rest: Buffer = Buffer.alloc(0)
+      reader.stdout?.on('data', (chunk: Buffer) => {
+        const decoded = decodeEvents(Buffer.concat([rest, chunk]))
+        rest = decoded.rest
+        for (const event of decoded.events) this.dispatch(event.type, event.code, event.value)
+      })
+      // A device can disappear mid-recording (unplugged mouse); that must not crash the app.
+      reader.on('error', () => undefined)
+      this.readers.push(reader)
     }
-    return this.streams.length > 0
+    return this.readers.length > 0
   }
 
   private dispatch(type: number, code: number, value: number): void {

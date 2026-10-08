@@ -30,6 +30,8 @@ import { ZOOM_SAMPLE_RATE, audibleZoomTransitions, zoomSoundRuns, zoomTransition
 import { smoothPointerPath } from '../../shared/pointer'
 import { resolveZoomSegments } from '../../shared/zoom-planner'
 import { renderFrame } from '../../render/render-frame'
+import { drawScene } from '../../render/scene'
+import { exportDurationSec, exportFrameAt, sceneTimeline, spansWithScenes } from '../../shared/scenes'
 import { drawCutTransition, holdFrame } from '../../render/cut-transition'
 import { cutJoins, cutTransitionActive, normalizeCutTransition, transitionProgress } from '../../shared/cut-transition'
 import { gifFps, gifWidth, pickBitrate } from './bitrate'
@@ -232,6 +234,9 @@ export async function exportProject(args: ExportArgs): Promise<{ path: string }>
     const timeline = speedSpans(start, end, project.speedRegions, project.cuts)
     const span = timeline.at(-1)?.outputEnd ?? 0
     if (!(span > 0.01)) throw new Error('Nothing to export: every clip in the trim range is removed')
+    // Intro cards play before the recording and outro cards after it; the
+    // recording keeps its own clock, `span` long, starting introSec in.
+    const scenes = sceneTimeline(project.scenes ?? [], span)
 
     const quality = project.output.quality ?? 'balanced'
     const fps = args.kind === 'gif' ? gifFps(quality) : project.output.fps
@@ -328,56 +333,65 @@ export async function exportProject(args: ExportArgs): Promise<{ path: string }>
       reportToMain(clamped)
     }
 
-    // Video: one output frame per 1/fps, pulled from the decoder at exactly those times.
-    const frameCount = Math.max(1, Math.round(span * fps))
+    // Video: one output frame per 1/fps. Recording frames are pulled from the
+    // decoder at exactly their source times; scene frames are drawn instead.
+    const frameCount = Math.max(1, Math.round(exportDurationSec(scenes, span) * fps))
+    const plan = Array.from({ length: frameCount }, (_, n) => exportFrameAt(scenes, span, n / fps))
     const blank = new OffscreenCanvas(Math.max(1, videoSize.width), Math.max(1, videoSize.height))
     // Where a removed clip joined two pieces, and what covers that join.
     const transition = normalizeCutTransition(project.cutTransition)
     const joins = cutTransitionActive(transition) ? cutJoins(timeline) : []
     const videoJob = (async () => {
       const screenSink = new CanvasSink(videoTrack, { poolSize: 2 })
-      const timestamps = () => Array.from({ length: frameCount }, (_, n) => sourceTimeAt(n / fps, timeline))
+      const timestamps = () => plan.flatMap((f) => (f.kind === 'recording' ? [sourceTimeAt(f.recordingSec, timeline)] : []))
       const screenIter = screenSink.canvasesAtTimestamps(timestamps())
       const webcamIter = webcamSink ? webcamSink.canvasesAtTimestamps(timestamps()) : null
-      let n = 0
       let nextJoin = 0
       let held: CanvasImageSource | null = null
-      for await (const wrapped of screenIter) {
+      for (let n = 0; n < frameCount; n++) {
         throwIfAborted(signal)
         const outputTime = n / fps
-        const t = sourceTimeAt(outputTime, timeline)
-        // The canvas still holds the frame before the join, so copy it now,
-        // before this frame — the first one after the jump — overwrites it.
-        while (nextJoin < joins.length && outputTime >= joins[nextJoin]) {
-          held = holdFrame(ctx) ?? held
-          nextJoin += 1
-        }
-        let webcam: WrappedCanvas | null = null
-        if (webcamIter) webcam = (await webcamIter.next()).value ?? null
-        renderFrame(ctx, {
-          video: wrapped?.canvas ?? blank,
-          videoSize,
-          tSec: t,
-          events,
-          project,
-          segments,
-          pointerPath,
-          webcam: webcam?.canvas ?? null,
-          backgroundImage,
-          overlays,
-          overlayImages,
-          duration
-        })
-        if (held) {
-          const progress = transitionProgress(outputTime, joins, transition)
-          if (progress === null) held = null
-          else drawCutTransition(ctx, held, progress, transition.style)
+        const frame = plan[n]!
+        if (frame.kind === 'scene') {
+          drawScene(ctx, size, project, frame.scene, frame.localSec, backgroundImage)
+        } else {
+          // Joins are on the recording's own clock, not the video's.
+          const recordingTime = frame.recordingSec
+          const t = sourceTimeAt(recordingTime, timeline)
+          // The canvas still holds the frame before the join, so copy it now,
+          // before this frame — the first one after the jump — overwrites it.
+          while (nextJoin < joins.length && recordingTime >= joins[nextJoin]) {
+            held = holdFrame(ctx) ?? held
+            nextJoin += 1
+          }
+          const wrapped = (await screenIter.next()).value ?? null
+          let webcam: WrappedCanvas | null = null
+          if (webcamIter) webcam = (await webcamIter.next()).value ?? null
+          renderFrame(ctx, {
+            video: wrapped?.canvas ?? blank,
+            videoSize,
+            tSec: t,
+            events,
+            project,
+            segments,
+            pointerPath,
+            webcam: webcam?.canvas ?? null,
+            backgroundImage,
+            overlays,
+            overlayImages,
+            duration
+          })
+          if (held) {
+            const progress = transitionProgress(recordingTime, joins, transition)
+            if (progress === null) held = null
+            else drawCutTransition(ctx, held, progress, transition.style)
+          }
         }
         await videoSource.add(outputTime, 1 / fps)
-        n += 1
-        report((n / frameCount) * 0.97)
+        report(((n + 1) / frameCount) * 0.97)
       }
-      if (webcamIter) await webcamIter.return()
+      await screenIter.return(undefined)
+      if (webcamIter) await webcamIter.return(undefined)
     })()
 
     // Audio: decoded samples clipped to the trim, shifted so the trim start is t=0.
@@ -397,7 +411,7 @@ export async function exportProject(args: ExportArgs): Promise<{ path: string }>
         if (!clipped) continue
         const scaled = scaleAudioSample(clipped, job.gain)
         clipped.close()
-        const retimed = retimeAudioSample(scaled, piece.rate, piece.outputStart + (lo - piece.start + scaled.timestamp) / piece.rate)
+        const retimed = retimeAudioSample(scaled, piece.rate, scenes.introSec + piece.outputStart + (lo - piece.start + scaled.timestamp) / piece.rate)
         try {
           await job.source.add(retimed)
           if (!wroteSamples) { wroteSamples = true; audioTrackCount++ }
@@ -415,7 +429,8 @@ export async function exportProject(args: ExportArgs): Promise<{ path: string }>
     const done = await window.polish.exportEnd({
       exportId: id,
       audioTrackCount,
-      audioSpeedSpans: project.preserveAudioPitch !== false ? timeline.map(span => ({start:span.outputStart,end:span.outputEnd,rate:span.rate})) : undefined,
+      durationSec: frameCount / fps,
+      audioSpeedSpans: project.preserveAudioPitch !== false ? spansWithScenes(timeline.map(span => ({start:span.outputStart,end:span.outputEnd,rate:span.rate})), scenes) : undefined,
       fps: args.kind === 'gif' ? gifFps(quality) : undefined,
       width: args.kind === 'gif' ? gifWidth(size.width, quality) : undefined
     })

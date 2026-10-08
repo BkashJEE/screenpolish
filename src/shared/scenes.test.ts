@@ -4,12 +4,15 @@ import {
   SCENE_MAX_STEPS,
   SCENE_MIN_SEC,
   easeOutBack,
+  exportDurationSec,
+  exportFrameAt,
   normalizeScene,
   normalizeScenes,
   sceneAt,
   sceneLayout,
   sceneMotion,
   sceneTimeline,
+  spansWithScenes,
   wrapTitle,
   type Scene
 } from './scenes'
@@ -191,5 +194,41 @@ describe('sceneLayout', () => {
       expect(e.y).toBeGreaterThan(0)
       expect(e.y).toBeLessThan(portrait.height)
     }
+  })
+})
+
+describe('export timing', () => {
+  const intro = scene({ id: 'i', kind: 'intro', durationSec: 2 })
+  const outro = scene({ id: 'o', kind: 'outro', durationSec: 3 })
+  const tl = sceneTimeline([intro, outro], 10)
+
+  it('runs intros, then the recording, then outros', () => {
+    expect(exportDurationSec(tl, 10)).toBe(15)
+    expect(exportFrameAt(tl, 10, 0)).toEqual({ kind: 'scene', scene: intro, localSec: 0 })
+    expect(exportFrameAt(tl, 10, 1.5)).toMatchObject({ kind: 'scene', localSec: 1.5 })
+    expect(exportFrameAt(tl, 10, 2)).toEqual({ kind: 'recording', recordingSec: 0 })
+    expect(exportFrameAt(tl, 10, 7.25)).toEqual({ kind: 'recording', recordingSec: 5.25 })
+    expect(exportFrameAt(tl, 10, 12)).toEqual({ kind: 'scene', scene: outro, localSec: 0 })
+  })
+
+  it('is exactly the recording when there are no scenes', () => {
+    const none = sceneTimeline([], 10)
+    expect(exportDurationSec(none, 10)).toBe(10)
+    expect(exportFrameAt(none, 10, 4)).toEqual({ kind: 'recording', recordingSec: 4 })
+    expect(spansWithScenes([{ start: 0, end: 10, rate: 1 }], none)).toEqual([{ start: 0, end: 10, rate: 1 }])
+  })
+
+  it('moves the speed spans after the intro and covers both scenes, with no gaps', () => {
+    const spans = [{ start: 0, end: 4, rate: 1 }, { start: 4, end: 6, rate: 2 }, { start: 6, end: 10, rate: 1 }]
+    const out = spansWithScenes(spans, tl)
+    expect(out).toEqual([
+      { start: 0, end: 2, rate: 1 },
+      { start: 2, end: 6, rate: 1 },
+      { start: 6, end: 8, rate: 2 },
+      { start: 8, end: 12, rate: 1 },
+      { start: 12, end: 15, rate: 1 }
+    ])
+    for (let i = 1; i < out.length; i++) expect(out[i]!.start).toBe(out[i - 1]!.end)
+    expect(out.at(-1)!.end).toBe(exportDurationSec(tl, 10))
   })
 })

@@ -92,6 +92,8 @@ export interface ExportBeginResponse {
 export interface ExportEndRequest {
   audioTrackCount?: number
   audioSpeedSpans?: Array<{ start: number; end: number; rate: number }>
+  /** Seconds the video runs, so the audio is padded to match (an outro card has no sound of its own). */
+  durationSec?: number
   exportId: string
   /** For GIF: main converts the temp MP4 and deletes it. */
   fps?: number

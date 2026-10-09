@@ -231,8 +231,6 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
         </div>
       </div>
 
-      <PlanPanel sources={sources} hasMic={devices.mics.length > 0} hasWebcam={devices.cams.length > 0} onApply={applyRecordingPlan} onRecord={recordRecordingPlan} disabled={!idle || starting} />
-
       <div className="capture-settings min-h-0">
         {/* Source ------------------------------------------------------------ */}
         <div className="capture-sources flex flex-col gap-2 px-4 pt-3 pb-3">
@@ -454,8 +452,11 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
         </div>
       </div>
 
-      {/* Start ------------------------------------------------------------- */}
       {app && <div className="px-4 pb-3"><ShortcutSettings settings={app} disabled={recording.status !== 'idle'} onSaved={setApp} /></div>}
+
+      {/* Plan --------------------------------------------------------------- */}
+      <PlanPanel sources={sources} hasMic={devices.mics.length > 0} hasWebcam={devices.cams.length > 0} onApply={applyRecordingPlan} onRecord={recordRecordingPlan} disabled={!idle || starting} />
+      {/* Start ------------------------------------------------------------- */}
       <div className="flex shrink-0 flex-col gap-2 border-t border-line p-4">
         {startError && (
           <div className="flex items-center gap-2 rounded-[8px] border border-danger/30 bg-danger-soft px-2.5 py-1.5 text-[12px] text-danger">

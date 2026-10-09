@@ -30,12 +30,14 @@ describe('sanitizeSettings', () => {
   it('forces the rendered pointer on Linux and honours system mode elsewhere', () => {
     expect(sanitizeSettings({ cursorMode: 'system' }, fallback).cursorMode).toBe(process.platform === 'linux' ? 'overlay' : 'system')
   })
-  it('defaults to the hand and preserves every explicit known pointer skin', () => {
-    expect(sanitizeSettings({}, fallback).cursorSkin).toBe('hand')
+  it('defaults to the Agent pointer and preserves every explicit known pointer skin', () => {
+    expect(sanitizeSettings({}, fallback).cursorSkin).toBe('agent')
     for (const skin of CURSOR_SKINS) {
       expect(sanitizeSettings({ cursorSkin: skin }, fallback).cursorSkin).toBe(skin)
     }
-    expect(sanitizeSettings({ cursorSkin: 'sparkle' }, fallback).cursorSkin).toBe('hand')
+    // Someone who chose the hand keeps the hand.
+    expect(sanitizeSettings({ cursorSkin: 'hand' }, fallback).cursorSkin).toBe('hand')
+    expect(sanitizeSettings({ cursorSkin: 'sparkle' }, fallback).cursorSkin).toBe('agent')
   })
 })
 

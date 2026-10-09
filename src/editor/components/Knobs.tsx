@@ -1,4 +1,5 @@
 import { memo, useEffect, useState, type ReactNode } from 'react'
+import { AGENT_POINTER_COLOR } from '../../render/render-frame'
 import type { MusicTrack } from '../../shared/ipc'
 import { BUNDLED_MUSIC } from '../../shared/bundled-music'
 import { CLICK_SOUND_STYLES, DEFAULT_CLICK_SOUND, type ClickSoundStyle } from '../../shared/click-sound'
@@ -551,6 +552,7 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
             value={project.cursor.style}
             onChange={(style) => set('cursor', { style })}
             options={[
+              { value: 'agent', label: 'Agent' },
               { value: 'arrow', label: 'Arrow' },
               { value: 'hand', label: 'Hand' },
               { value: 'bobbing', label: 'Bobbing' },
@@ -559,7 +561,13 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
             ]}
           />
         </Row>
+        {project.cursor.style === 'agent' && (
+          <Row label="Colour">
+            <ColorField value={project.cursor.color ?? AGENT_POINTER_COLOR} onChange={(color) => set('cursor', { color })} />
+          </Row>
+        )}
         <SliderField label="Size" value={project.cursor.size} min={0} max={3} step={0.05} onChange={(size) => set('cursor', { size })} format={(v) => (v === 0 ? 'Hidden' : `${v.toFixed(2)}x`)} />
+        <SliderField label="Spotlight" value={project.cursor.spotlight ?? 0} min={0} max={1} step={0.05} onChange={(spotlight) => set('cursor', { spotlight })} format={(v) => (v === 0 ? 'Off' : pct(v))} />
         <SliderField label="Smoothing" value={project.cursor.smoothing} min={0} max={1} step={0.01} onChange={(smoothing) => set('cursor', { smoothing })} format={pct} />
         <SliderField label="Glide" value={project.cursor.glide ?? 0} min={0} max={1} step={0.01} onChange={(glide) => set('cursor', { glide })} format={pct} />
         <p className="text-[11px] leading-[1.4] text-fg-muted">Glide slows fast pointer moves into calm, even ones that still land on every click. Smoothing only removes jitter.</p>

@@ -451,6 +451,7 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
                 disabled={!app}
                 onChange={(v: CursorSkin) => patchApp({ cursorSkin: v })}
                 options={[
+                  { value: 'agent', label: 'Agent' },
                   { value: 'hand', label: 'Hand' },
                   { value: 'arrow', label: 'Arrow (light)' },
                   { value: 'arrow-dark', label: 'Arrow (dark)' },

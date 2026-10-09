@@ -204,16 +204,16 @@ export const EDITOR = {
 export type CursorMode = 'overlay' | 'system'
 
 /** Sprite the overlay pointer draws. Only meaningful when cursorMode is 'overlay'. */
-export type CursorSkin = 'hand' | 'arrow' | 'arrow-dark' | 'ring' | 'dot' | 'crosshair' | 'sprite'
+export type CursorSkin = 'agent' | 'hand' | 'arrow' | 'arrow-dark' | 'ring' | 'dot' | 'crosshair' | 'sprite'
 
-export const CURSOR_SKINS: readonly CursorSkin[] = ['hand', 'arrow', 'arrow-dark', 'ring', 'dot', 'crosshair', 'sprite']
+export const CURSOR_SKINS: readonly CursorSkin[] = ['agent', 'hand', 'arrow', 'arrow-dark', 'ring', 'dot', 'crosshair', 'sprite']
 
 /**
  * The hand reads as "I am pointing at this" rather than "I am a mouse", which is
  * what a demo is actually saying, and its silhouette survives being scaled up by
  * a 2x zoom better than a thin arrow does.
  */
-export const DEFAULT_CURSOR_SKIN: CursorSkin = 'hand'
+export const DEFAULT_CURSOR_SKIN: CursorSkin = 'agent'
 
 /** userData/settings.json */
 export interface AppSettings {

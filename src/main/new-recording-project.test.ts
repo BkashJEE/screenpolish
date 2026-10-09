@@ -55,3 +55,12 @@ describe('a planned take', () => {
     expect(p.title).toBe('Firefox')
   })
 })
+
+describe('the Agent pointer', () => {
+  it('is what a new take draws when the record panel picks it, which is now the default', async () => {
+    const { DEFAULT_CURSOR_SKIN } = await import('@shared/ipc')
+    expect(DEFAULT_CURSOR_SKIN).toBe('agent')
+    expect(newRecordingProject({ title: '', fps: 30, cursorSkin: 'agent' }).cursor.style).toBe('agent')
+    expect(newRecordingProject({ title: '', fps: 30, cursorSkin: 'hand' }).cursor.style).toBe('hand')
+  })
+})

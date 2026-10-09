@@ -442,10 +442,49 @@ function traceArrow(target: { moveTo(x: number, y: number): void; lineTo(x: numb
   target.closePath()
 }
 
-export function drawCursor(ctx: Ctx2D, x: number, y: number, sizePx: number, style: Project['cursor']['style']): void {
+/** The Agent pointer's fill when the project names none. */
+export const AGENT_POINTER_COLOR = '#7f77dd'
+
+/**
+ * The Agent pointer: a rounded arrow in a colour, inside a white outline that
+ * keeps it readable on dark and light screens alike. Unit coordinates, tip at
+ * the origin (the hotspot), about 0.95 tall.
+ */
+function traceAgentArrow(ctx: Ctx2D): void {
+  ctx.beginPath()
+  ctx.moveTo(0, 0)
+  ctx.lineTo(0, 0.8)
+  ctx.lineTo(0.21, 0.61)
+  ctx.lineTo(0.35, 0.91)
+  ctx.lineTo(0.48, 0.86)
+  ctx.lineTo(0.35, 0.57)
+  ctx.lineTo(0.62, 0.55)
+  ctx.closePath()
+}
+
+export function drawCursor(ctx: Ctx2D, x: number, y: number, sizePx: number, style: Project['cursor']['style'], color?: string): void {
   if (!(sizePx > 0)) return
   ctx.save()
   ctx.translate(x, y)
+
+  if (style === 'agent') {
+    ctx.scale(sizePx, sizePx)
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    // A thin dark edge outside the white one, so the outline holds on white pages.
+    traceAgentArrow(ctx)
+    ctx.lineWidth = 0.16
+    ctx.strokeStyle = 'rgba(14, 20, 28, 0.55)'
+    ctx.stroke()
+    traceAgentArrow(ctx)
+    ctx.lineWidth = 0.11
+    ctx.strokeStyle = '#ffffff'
+    ctx.stroke()
+    ctx.fillStyle = color && /^#[0-9a-f]{6}$/i.test(color) ? color : AGENT_POINTER_COLOR
+    ctx.fill()
+    ctx.restore()
+    return
+  }
 
   if (style === 'sprite') {
     ctx.restore()
@@ -568,6 +607,23 @@ export function drawCursor(ctx: Ctx2D, x: number, y: number, sizePx: number, sty
  * at RIPPLE_MIN_RADIUS/RIPPLE_MAX_RADIUS of that (8 -> 40 when radiusPx is 40).
  * Alpha fades 0.8 -> 0. Draws nothing outside [0, lifeSec].
  */
+/**
+ * Dim the recording away from the pointer: clear around it, darkening to
+ * `0.65 x strength` past `radius`. Drawn inside the card's clip, so the
+ * background around the recording is left alone.
+ */
+export function drawSpotlight(ctx: Ctx2D, x: number, y: number, radius: number, strength: number): void {
+  const k = Math.min(1, Math.max(0, strength))
+  if (k <= 0 || !(radius > 0)) return
+  const g = ctx.createRadialGradient(x, y, radius * 0.55, x, y, radius * 1.35)
+  g.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  g.addColorStop(1, `rgba(0, 0, 0, ${(0.65 * k).toFixed(3)})`)
+  ctx.save()
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+  ctx.restore()
+}
+
 export function drawRipple(
   ctx: Ctx2D,
   x: number,
@@ -816,6 +872,17 @@ export function renderFrame(ctx: Ctx2D, input: FrameInput): void {
       // A pointer parked in a still frame draws the eye to nothing; fade it
       // out while it rests, and bring it straight back on movement or a click.
       const cursorAlpha = cursorAlphaAt(input.pointerPath, input.events.clicks, input.tSec, project.cursor.idleHideSec)
+      // Spotlight: dim the recording away from the pointer. It fades with the
+      // pointer, so a resting take goes back to plain.
+      if ((project.cursor.spotlight ?? 0) > 0 && cursorAlpha > 0.01) {
+        drawSpotlight(
+          card,
+          mapping.tx + mapping.scale * localPointer.x,
+          mapping.ty + mapping.scale * localPointer.y,
+          0.18 * Math.min(input.videoSize.width, input.videoSize.height) * mapping.scale,
+          (project.cursor.spotlight ?? 0) * cursorAlpha
+        )
+      }
       if (cursorAlpha > 0.01) {
       card.save()
       card.globalAlpha *= cursorAlpha
@@ -833,7 +900,7 @@ export function renderFrame(ctx: Ctx2D, input: FrameInput): void {
         const local = sourceToCroppedPoint(past, geometry.crop)
         card.save()
         card.globalAlpha *= 0.1 * (1 - i / (trails + 1))
-        drawCursor(card, mapping.tx + mapping.scale * local.x, mapping.ty + mapping.scale * local.y, CURSOR_BASE_PX * project.cursor.size * mapping.scale, project.cursor.style)
+        drawCursor(card, mapping.tx + mapping.scale * local.x, mapping.ty + mapping.scale * local.y, CURSOR_BASE_PX * project.cursor.size * mapping.scale, project.cursor.style, project.cursor.color)
         card.restore()
       }
       const px = mapping.tx + mapping.scale * localPointer.x
@@ -872,7 +939,8 @@ export function renderFrame(ctx: Ctx2D, input: FrameInput): void {
         sway > 0 || bobbing || hand ? 0 : px,
         sway > 0 || bobbing || hand ? 0 : py,
         CURSOR_BASE_PX * project.cursor.size * mapping.scale * bounce,
-        project.cursor.style
+        project.cursor.style,
+        project.cursor.color
       )
       if (sway > 0 || bobbing || hand) card.restore()
       }

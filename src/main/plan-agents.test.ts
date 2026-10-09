@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { BUILTIN_AGENTS, PLAN_PROMPT_MAX, agentArgv, askAgent, availableAgents, onPath, parseUserAgents, type RunCommand } from './plan-agents'
 
@@ -32,8 +33,9 @@ describe('availableAgents', () => {
   })
 
   it('finds commands on PATH the way a shell would', () => {
-    const env = { PATH: '/usr/bin:/opt/bin' }
-    expect(onPath('codex', env, (p) => p === '/opt/bin/codex')).toBe(true)
+    // Built with this platform's separator and joins, so it holds on Windows too.
+    const env = { PATH: ['/usr/bin', '/opt/bin'].join(path.delimiter) }
+    expect(onPath('codex', env, (p) => p === path.join('/opt/bin', 'codex'))).toBe(true)
     expect(onPath('codex', env, () => false)).toBe(false)
     expect(onPath('/abs/agent', env, (p) => p === '/abs/agent')).toBe(true)
   })

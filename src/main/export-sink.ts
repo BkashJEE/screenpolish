@@ -7,7 +7,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { ExportBeginRequest, ExportBeginResponse, ExportEndRequest, ExportEndResponse } from '@shared/ipc'
 import { ffmpegGifArgs } from './gif'
-import { audioMixFilter } from './audio-filter'
+import { audioMixFilter, hasSpeedChange, spansEnd, speedMixPassOneArgs, speedMixPassTwoArgs } from './audio-filter'
 import { sanitizeBaseName, stemOf, uniqueName } from './naming'
 
 export interface ExportSinkDeps {
@@ -165,7 +165,19 @@ export function createExportSink(deps: ExportSinkDeps): ExportSink {
         const count = request.audioTrackCount ?? 0
         if (job.kind === 'mp4' && Number.isInteger(count) && count >= 1 && count <= 32) {
           const mixed = `${job.writePath}.${job.id}.mixed.mp4`
-          await runFfmpeg(deps.ffmpegPath(), ['-hide_banner', '-loglevel', 'error', '-i', job.writePath, '-filter_complex', audioMixFilter(count, request.audioSpeedSpans, request.durationSec), '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', mixed])
+          const spans = request.audioSpeedSpans
+          if (spans && hasSpeedChange(spans)) {
+            // Speed changes: mix to one WAV, then correct pitch piece by piece.
+            const wav = `${job.writePath}.${job.id}.mix.wav`
+            try {
+              await runFfmpeg(deps.ffmpegPath(), speedMixPassOneArgs(job.writePath, count, request.durationSec ?? spansEnd(spans), wav))
+              await runFfmpeg(deps.ffmpegPath(), speedMixPassTwoArgs(job.writePath, wav, spans, mixed))
+            } finally {
+              await fs.promises.rm(wav, { force: true })
+            }
+          } else {
+            await runFfmpeg(deps.ffmpegPath(), ['-hide_banner', '-loglevel', 'error', '-i', job.writePath, '-filter_complex', audioMixFilter(count, request.durationSec), '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', mixed])
+          }
           await fs.promises.rename(mixed, job.writePath)
         }
         if (job.kind === 'gif') {

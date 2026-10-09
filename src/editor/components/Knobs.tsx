@@ -561,6 +561,8 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
         </Row>
         <SliderField label="Size" value={project.cursor.size} min={0} max={3} step={0.05} onChange={(size) => set('cursor', { size })} format={(v) => (v === 0 ? 'Hidden' : `${v.toFixed(2)}x`)} />
         <SliderField label="Smoothing" value={project.cursor.smoothing} min={0} max={1} step={0.01} onChange={(smoothing) => set('cursor', { smoothing })} format={pct} />
+        <SliderField label="Glide" value={project.cursor.glide ?? 0} min={0} max={1} step={0.01} onChange={(glide) => set('cursor', { glide })} format={pct} />
+        <p className="text-[11px] leading-[1.4] text-fg-muted">Glide slows fast pointer moves into calm, even ones that still land on every click. Smoothing only removes jitter.</p>
         <Row label="Click ripples">
           <Toggle checked={project.cursor.ripple} onChange={(ripple) => set('cursor', { ripple })} label="Click ripples" />
         </Row>

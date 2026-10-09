@@ -27,7 +27,7 @@ export function newRecordingProject(args: { title: string; fps: 30 | 60; cursorS
     scenes: look?.scenes ?? [],
     // New recordings get a soft whoosh under each zoom; turn it off per project under Zoom.
     zoom: { ...DEFAULT_PROJECT.zoom, sound: { ...DEFAULT_ZOOM_SOUND, enabled: true } },
-    // New recordings tick on every mouse press; turn it off per project under Cursor.
-    cursor: { ...DEFAULT_PROJECT.cursor, style, clickSound: { ...DEFAULT_CLICK_SOUND, enabled: true } }
+    // New recordings tick on every mouse press, and glide fast pointer moves; both per project under Cursor.
+    cursor: { ...DEFAULT_PROJECT.cursor, style, glide: 0.5, clickSound: { ...DEFAULT_CLICK_SOUND, enabled: true } }
   }
 }

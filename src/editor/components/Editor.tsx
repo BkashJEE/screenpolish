@@ -4,7 +4,7 @@ import { RegionLanes } from './RegionLanes'
 import type { ExportRequest, LoadedProject } from '../../shared/ipc'
 import type { MockupKind, Overlay, OverlayKind, Project, ZoomSegment } from '../../shared/types'
 import { outputSize } from '../../shared/layout'
-import { pointerAt, smoothPointerPath } from '../../shared/pointer'
+import { pointerAt, pointerPathFor } from '../../shared/pointer'
 import { resolveZoomSegments } from '../../shared/zoom-planner'
 import { useDebouncedSave, type SaveStatus } from '../hooks/useDebouncedSave'
 import { useKeyboard } from '../hooks/useKeyboard'
@@ -137,7 +137,7 @@ function LoadedEditor({ loaded, onBack }: { loaded: LoadedProject; onBack: () =>
   const hasDuration = Number.isFinite(duration) && duration > 0
   const trim = useMemo(() => resolveTrim(project.trim, hasDuration ? duration : 0), [project.trim, duration, hasDuration])
   const segments = useMemo(() => (hasDuration ? resolveZoomSegments(project, events, duration) : []), [project, events, duration, hasDuration])
-  const pointerPath = useMemo(() => smoothPointerPath(events, project.cursor.smoothing), [events, project.cursor.smoothing])
+  const pointerPath = useMemo(() => pointerPathFor(events, project.cursor), [events, project.cursor.smoothing, project.cursor.glide])
   const videoSize = useMemo(() => ({ width: events.region.width, height: events.region.height }), [events.region])
   const outSize = useMemo(() => outputSize(project, videoSize), [project, videoSize])
   const selected = useMemo(() => segments.find((s) => s.id === selectedZoomId) ?? null, [segments, selectedZoomId])

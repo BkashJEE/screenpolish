@@ -27,7 +27,7 @@ import { effectiveTrim, outputSize } from '../../shared/layout'
 import { speedSpans, sourceTimeAt } from '../../shared/speed'
 import { CLICK_SAMPLE_RATE, DEFAULT_CLICK_SOUND, clickRuns, clickTimes } from '../../shared/click-sound'
 import { ZOOM_SAMPLE_RATE, audibleZoomTransitions, zoomSoundRuns, zoomTransitions } from '../../shared/zoom-sound'
-import { smoothPointerPath } from '../../shared/pointer'
+import { pointerPathFor } from '../../shared/pointer'
 import { resolveZoomSegments } from '../../shared/zoom-planner'
 import { renderFrame } from '../../render/render-frame'
 import { drawScene } from '../../render/scene'
@@ -243,7 +243,7 @@ export async function exportProject(args: ExportArgs): Promise<{ path: string }>
     const videoSize = { width: events.region.width, height: events.region.height }
     const size = outputSize(project, videoSize)
     const segments = resolveZoomSegments(project, events, duration)
-    const pointerPath = smoothPointerPath(events, project.cursor.smoothing)
+    const pointerPath = pointerPathFor(events, project.cursor)
     const backgroundImage =
       args.backgroundImage ??
       (project.background.kind === 'image' && project.background.imagePath

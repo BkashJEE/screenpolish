@@ -1,5 +1,6 @@
 import { formatTime } from '../lib/time'
-import { Pause, Play, Refresh, Scissors, SkipEnd, SkipStart, Trash } from './icons'
+import { CLIP_SPEEDS } from '../../shared/speed'
+import { Gauge, Pause, Play, Refresh, Scissors, SkipEnd, SkipStart, Trash } from './icons'
 import { IconButton, Kbd, cx } from './ui'
 
 export function Transport({
@@ -17,7 +18,9 @@ export function Transport({
   onSplit,
   selectedClip,
   onRemoveClip,
-  onRestoreClip
+  onRestoreClip,
+  clipSpeed,
+  onClipSpeed
 }: {
   time: number
   duration: number
@@ -35,9 +38,12 @@ export function Transport({
   selectedClip?: { removed: boolean } | null
   onRemoveClip?: () => void
   onRestoreClip?: () => void
+  /** The selected clip's speed: a rate, or null when only part of it is sped up. */
+  clipSpeed?: number | null
+  onClipSpeed?: (rate: number) => void
 }) {
   const kept = keptSeconds ?? trim.end - trim.start
-  const trimmed = trim.start > 0 || (Number.isFinite(duration) && trim.end < duration - 1e-3) || kept < trim.end - trim.start - 1e-3
+  const trimmed = trim.start > 0 || (Number.isFinite(duration) && trim.end < duration - 1e-3) || Math.abs(kept - (trim.end - trim.start)) > 1e-3
   return (
     <div className={cx('flex h-10 items-center gap-1 px-1', disabled && 'opacity-50 pointer-events-none')}>
       <IconButton label="Go to trim start (Home)" onClick={() => onSeek(trim.start)}>
@@ -61,7 +67,7 @@ export function Transport({
         <span className="text-fg-dim"> / {formatTime(duration)}</span>
       </div>
       {trimmed && (
-        <div className="ml-2 font-mono text-[11px] tabular-nums text-fg-dim" title="Length after trim and removed clips" data-testid="kept-length">
+        <div className="ml-2 font-mono text-[11px] tabular-nums text-fg-dim" title="Length of the export, after trims, removed clips and speed changes" data-testid="kept-length">
           [{formatTime(kept, { fraction: false })}]
         </div>
       )}
@@ -85,6 +91,22 @@ export function Transport({
           >
             <Trash size={13} /> <Kbd>Del</Kbd> Remove clip
           </button>
+        )}
+        {selectedClip && !selectedClip.removed && onClipSpeed && (
+          <div className="flex items-center gap-0.5 rounded-[7px] border border-line px-1" role="group" aria-label="Clip speed" title="Speed up or slow down the selected clip">
+            <Gauge size={13} className="mx-1 text-fg-muted" />
+            {CLIP_SPEEDS.map((rate) => (
+              <button
+                key={rate}
+                type="button"
+                aria-pressed={clipSpeed === rate}
+                onClick={() => onClipSpeed(rate)}
+                className={`h-6 rounded-[5px] px-1.5 font-mono text-[11px] tabular-nums ${clipSpeed === rate ? 'bg-accent text-accent-fg' : 'text-fg-muted hover:bg-bg-3 hover:text-fg'}`}
+              >
+                {rate}×
+              </button>
+            ))}
+          </div>
         )}
         {selectedClip?.removed && (
           <button

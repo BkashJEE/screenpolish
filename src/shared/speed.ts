@@ -97,3 +97,48 @@ export function sourceTimeAt(outputTime: number, spans: readonly SpeedSpan[]): n
   const span = spans.find((s) => outputTime < s.outputEnd) ?? spans.at(-1)
   return span ? Math.min(span.end, span.start + Math.max(0, outputTime - span.outputStart) * span.rate) : 0
 }
+
+// ---------------------------------------------------------------------------
+// Clip speed
+
+/** The speeds offered for a selected clip, slow motion to fast. */
+export const CLIP_SPEEDS = [0.5, 1, 1.5, 2, 4] as const
+/** Seconds of ramp at each end of a sped-up clip; regionEase caps it at half the clip. */
+export const CLIP_SPEED_EASE = 0.3
+
+/**
+ * Speed regions with `clip` playing at `rate`. Anything already over the clip
+ * is replaced, and a region that ran past either end keeps the part outside
+ * it, so speeding one clip never changes its neighbours. Rate 1 leaves the
+ * clip at normal speed.
+ */
+export function setClipSpeed(
+  regions: readonly SpeedRegion[] | undefined,
+  clip: { start: number; end: number },
+  rate: number,
+  newId: () => string = () => crypto.randomUUID()
+): SpeedRegion[] {
+  const out: SpeedRegion[] = []
+  for (const r of regions ?? []) {
+    if (r.end <= clip.start || r.start >= clip.end) {
+      out.push(r)
+      continue
+    }
+    // Keep what lies outside the clip, each part with its own ramp cap.
+    if (r.start < clip.start) out.push({ ...r, end: clip.start })
+    if (r.end > clip.end) out.push({ ...r, id: newId(), start: clip.end })
+  }
+  if (Number.isFinite(rate) && rate !== 1 && clip.end > clip.start) {
+    out.push({ id: newId(), start: clip.start, end: clip.end, rate: Math.min(4, Math.max(0.25, rate)), ease: CLIP_SPEED_EASE })
+  }
+  return out.sort((a, b) => a.start - b.start)
+}
+
+/** The speed a clip plays at when one region covers it exactly, 1 when none touches it, else null (mixed). */
+export function clipSpeed(regions: readonly SpeedRegion[] | undefined, clip: { start: number; end: number }): number | null {
+  const touching = (regions ?? []).filter((r) => r.end > clip.start && r.start < clip.end)
+  if (touching.length === 0) return 1
+  const only = touching[0]!
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-3
+  return touching.length === 1 && near(only.start, clip.start) && near(only.end, clip.end) ? regionRate(only) : null
+}

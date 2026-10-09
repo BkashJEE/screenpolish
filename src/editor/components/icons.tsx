@@ -67,3 +67,14 @@ export const Spinner = ({ size = 16, className = '', ...rest }: IconProps) => (
     <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 )
+
+/** A speedometer: the clip speed control. */
+export const Gauge = (p: IconProps) =>
+  base(
+    p,
+    <>
+      <path d="M2.5 11.5a5.5 5.5 0 1 1 11 0" />
+      <path d="M8 11.5l2.6-3.4" />
+      <circle cx="8" cy="11.5" r="0.6" fill="currentColor" />
+    </>
+  )

@@ -18,7 +18,12 @@ export function audioMixFilter(count: number, spans?: AudioSpeedSpan[], duration
   const mix = `${pad}${tracks}amix=inputs=${count}:duration=longest:normalize=0`
   // Without a length the mix ends with its last sample, which is before an
   // outro card ends: the audio stopped seconds short of the video.
-  const fit = durationSec !== undefined ? `,apad,atrim=duration=${durationSec}` : ''
+  // apad with no length pads forever and relies on the atrim after it to end
+  // the stream. Feeding asplit (the pitch-preserving branch below), that end
+  // never arrived: ffmpeg spun at full CPU and ignored SIGTERM, so an export
+  // of a take with a slowed section never finished. Padding to a known length
+  // ends on its own; the atrim still cuts audio that runs longer.
+  const fit = durationSec !== undefined ? `,apad=whole_dur=${durationSec},atrim=duration=${durationSec}` : ''
   if (!spans?.length || spans.every(span=>span.rate===1)) return `${mix}${fit},alimiter=limit=0.95[a]`
   if (spans.length > 512) throw new Error('Too many speed boundaries for pitch-preserving export')
   let previous = 0
@@ -33,5 +38,5 @@ export function audioMixFilter(count: number, spans?: AudioSpeedSpan[], duration
     return `[s${i}]atrim=start=${span.start}:end=${span.end},asetpts=PTS-STARTPTS,asetrate=${48000/span.rate},aresample=48000,${tempoFilters(span.rate)},apad,atrim=duration=${length}[p${i}];`
   }).join('')
   const outputs=spans.map((_,i)=>`[p${i}]`).join('')
-  return `${mix},apad,atrim=duration=${previous},asplit=${spans.length}${branches};${pieces}${outputs}concat=n=${spans.length}:v=0:a=1,alimiter=limit=0.95[a]`
+  return `${mix},apad=whole_dur=${previous},atrim=duration=${previous},asplit=${spans.length}${branches};${pieces}${outputs}concat=n=${spans.length}:v=0:a=1,alimiter=limit=0.95[a]`
 }

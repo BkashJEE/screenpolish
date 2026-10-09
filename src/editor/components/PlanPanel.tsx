@@ -21,6 +21,7 @@ export function PlanPanel({
   hasWebcam,
   onApply,
   onRecord,
+  onClear,
   disabled
 }: {
   sources: SourceInfo[] | null
@@ -29,6 +30,8 @@ export function PlanPanel({
   onApply: (plan: RecordPlan) => Promise<string[]>
   /** Apply, then record the plan's length and stop by itself. */
   onRecord?: (plan: RecordPlan) => Promise<string[]>
+  /** The plan was thrown away: the next take is an ordinary one again. */
+  onClear?: () => void
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(true)
@@ -98,6 +101,7 @@ export function PlanPanel({
     setPlan(null)
     setError(null)
     setApplied(null)
+    onClear?.()
   }
 
   return (

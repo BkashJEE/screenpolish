@@ -8,7 +8,7 @@ import type { StartRecordingRequest } from '@shared/ipc'
 import { cliArgs, handleCliPayload, runCliClient } from './cli'
 import { looksLikeCli } from './cli-parse'
 import { isCursorHidden, recoverCursorsIfNeeded, restoreSystemCursor } from './win/cursor-manager'
-import { defaultMusicRoot, getCursorSkin, loadSettings } from './settings'
+import { defaultBackgroundsRoot, defaultMusicRoot, getCursorSkin, loadSettings } from './settings'
 import { shortcutManager, shouldRegisterGlobalShortcuts } from './shortcuts'
 import { DEFAULT_SHORTCUTS, shortcutLabel } from '@shared/shortcuts'
 import { registerExportRequestIpc } from './export-requests'
@@ -234,7 +234,7 @@ async function main(): Promise<void> {
     // Only where the buffer can exist; elsewhere the key is left to other apps.
     ...(REPLAY_AVAILABLE ? { saveReplay: () => { void saveReplayNow() } } : {})
   })
-  registerEditorIpc({ session, exportSink, root: recordingsRoot, musicRoot: defaultMusicRoot, getEditorWindow, durationOf, pickRegion, ffmpegPath,
+  registerEditorIpc({ session, exportSink, root: recordingsRoot, musicRoot: defaultMusicRoot, backgroundsRoot: defaultBackgroundsRoot, getEditorWindow, durationOf, pickRegion, ffmpegPath,
     whisper: () => whisperFiles({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, appPath: app.getAppPath(), platform: process.platform }),
     applyShortcuts: (keys) => { applyShortcuts(keys); setTimeout(() => tray?.update(session.state), 0) }
   })

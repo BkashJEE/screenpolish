@@ -28,6 +28,11 @@ export function defaultMusicRoot(): string {
   return path.join(app.getPath('music'), 'ScreenPolish')
 }
 
+/** Your own backgrounds: pictures here appear in the editor's Background panel. */
+export function defaultBackgroundsRoot(): string {
+  return path.join(app.getPath('pictures'), 'ScreenPolish')
+}
+
 export function defaultRecordingsRoot(): string {
   const override = process.env.POLISH_RECORDINGS_ROOT?.trim()
   if (override && path.isAbsolute(override) && !app.isPackaged) return path.normalize(override)

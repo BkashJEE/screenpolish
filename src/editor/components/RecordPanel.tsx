@@ -144,21 +144,29 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
     return screens[0] ? displayIdOf(screens[0]) : 0
   }
 
-  const start = async () => {
-    if (!selection) return
+  /**
+   * Start with the panel's choices, or with `planned` ones: "Record this plan"
+   * sets the panel and starts in the same click, before React has re-rendered
+   * the state it just set, so it passes what it chose.
+   */
+  const start = async (planned?: { selection: RecordSource; mic: string; system: boolean; fps: 30 | 60; maxDurationSec: number }) => {
+    const chosen = planned?.selection ?? selection
+    if (!chosen) return
     setStarting(true)
     setStartError(null)
     const source: StartRecordingRequest['source'] =
-      selection.kind === 'region'
+      chosen.kind === 'region'
         ? // A zero-size region asks main to show the overlay picker on that display.
-          { kind: 'region', displayId: selection.displayId, region: { x: 0, y: 0, width: 0, height: 0, scale: 1 } }
-        : selection
+          { kind: 'region', displayId: chosen.displayId, region: { x: 0, y: 0, width: 0, height: 0, scale: 1 } }
+        : chosen
+    const mic = planned ? planned.mic : micValue
     const request: StartRecordingRequest = {
       source,
-      mic: micValue ? { deviceId: micValue } : null,
-      system: settings.system,
+      mic: mic ? { deviceId: mic } : null,
+      system: planned?.system ?? settings.system,
       webcam: camValue ? { deviceId: camValue } : null,
-      fps: settings.fps
+      fps: planned?.fps ?? settings.fps,
+      ...(planned ? { maxDurationSec: planned.maxDurationSec } : {})
     }
     try {
       await window.polish.startRecording(request)
@@ -173,7 +181,7 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
 
   // A plan sets the source, inputs and pointer here, and the cards, background
   // and shape on the next take. Returns what it could not match, to show.
-  const applyRecordingPlan = async (plan: RecordPlan): Promise<string[]> => {
+  const setUpPlan = async (plan: RecordPlan) => {
     const result = applyPlan(plan, sources ?? [], { mic: settings.mic, system: settings.system, fps: settings.fps })
     if (result.selection) setSelection(result.selection)
     // 'auto' means the first microphone; the panel stores real device ids.
@@ -183,7 +191,17 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
     setSettings((s) => ({ ...s, ...result.choices, mic }))
     if (result.cursorSkin) patchApp({ cursorSkin: result.cursorSkin })
     await window.polish.setNextTakeLook(takeLookOf(plan))
-    return notes
+    return { notes, selection: result.selection, mic, system: result.choices.system, fps: result.choices.fps }
+  }
+
+  const applyRecordingPlan = async (plan: RecordPlan): Promise<string[]> => (await setUpPlan(plan)).notes
+
+  /** Set the plan up and record it: counts in, records its length, stops itself. */
+  const recordRecordingPlan = async (plan: RecordPlan): Promise<string[]> => {
+    const set = await setUpPlan(plan)
+    if (!set.selection) return [...set.notes, 'Nothing to record: no screen was found.']
+    void start({ selection: set.selection, mic: set.mic, system: set.system, fps: set.fps, maxDurationSec: plan.durationSec })
+    return set.notes
   }
 
   const status: { tone: ChipTone; label: string } =
@@ -213,7 +231,7 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
         </div>
       </div>
 
-      <PlanPanel sources={sources} hasMic={devices.mics.length > 0} hasWebcam={devices.cams.length > 0} onApply={applyRecordingPlan} disabled={!idle} />
+      <PlanPanel sources={sources} hasMic={devices.mics.length > 0} hasWebcam={devices.cams.length > 0} onApply={applyRecordingPlan} onRecord={recordRecordingPlan} disabled={!idle || starting} />
 
       <div className="capture-settings min-h-0">
         {/* Source ------------------------------------------------------------ */}

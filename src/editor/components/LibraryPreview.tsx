@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { LoadedProject } from '../../shared/ipc'
 import type { RecordingSummary } from '../../shared/types'
 import { resolveZoomSegments } from '../../shared/zoom-planner'
-import { smoothPointerPath } from '../../shared/pointer'
+import { pointerPathFor } from '../../shared/pointer'
 import { imageUrlForPath, normalizeProject, normalizeClickSound, normalizeZoomSound } from '../lib/project'
 import { loadImage, loadOverlayImages } from '../lib/media'
 import { previewSeekTime } from '../lib/hover-preview'
@@ -59,7 +59,7 @@ function ComposedPreview({ item, scrub }: { item: RecordingSummary; scrub: numbe
 
   const trim = useMemo(() => resolveTrim(loaded?.project.trim ?? { start: 0, end: 0 }, duration), [loaded, duration])
   const segments = useMemo(() => loaded && duration > 0 ? resolveZoomSegments(loaded.project, loaded.events, duration) : [], [loaded, duration])
-  const pointer = useMemo(() => loaded ? smoothPointerPath(loaded.events, loaded.project.cursor.smoothing) : [], [loaded])
+  const pointer = useMemo(() => loaded ? pointerPathFor(loaded.events, loaded.project.cursor) : [], [loaded])
   useEffect(() => {
     if (scrub === null) return
     const next = previewSeekTime(scrub, trim.end - trim.start)

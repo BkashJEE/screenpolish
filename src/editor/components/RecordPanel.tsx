@@ -8,6 +8,7 @@ import { Button, Chip, Count, Eyebrow, IconButton, Kbd, Row, Segmented, Select, 
 import { ShortcutSettings } from './ShortcutSettings'
 import { PlanPanel } from './PlanPanel'
 import { applyPlan } from '../lib/plan-apply'
+import { formatTime } from '../lib/time'
 import { takeLookOf, type RecordPlan } from '../../shared/record-plan'
 import { DEFAULT_SHORTCUTS, shortcutLabel } from '../../shared/shortcuts'
 
@@ -42,6 +43,10 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
   const [showWindows, setShowWindows] = useState(false)
   const [settings, setSettings] = useState<RecordSettings>(loadSettings)
   const [starting, setStarting] = useState(false)
+  // The length of an applied plan. Every Record press honours it until a take
+  // lands: with the plan's own button and the panel's Record stacked together,
+  // pressing the second recorded a 30-second plan for two minutes.
+  const [plannedSec, setPlannedSec] = useState<number | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
   // Pointer behaviour lives in settings.json, not localStorage: the hotkey, the
   // tray and the CLI all start recordings without this panel ever mounting.
@@ -166,7 +171,7 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
       system: planned?.system ?? settings.system,
       webcam: camValue ? { deviceId: camValue } : null,
       fps: planned?.fps ?? settings.fps,
-      ...(planned ? { maxDurationSec: planned.maxDurationSec } : {})
+      ...(planned ? { maxDurationSec: planned.maxDurationSec } : plannedSec !== null ? { maxDurationSec: plannedSec } : {})
     }
     try {
       await window.polish.startRecording(request)
@@ -176,6 +181,13 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
       setStarting(false)
     }
   }
+
+  // A plan is for one take: once a recording has been written, Record is ordinary again.
+  const lastStatus = useRef(recording.status)
+  useEffect(() => {
+    if (lastStatus.current === 'finalizing' && recording.status === 'idle') setPlannedSec(null)
+    lastStatus.current = recording.status
+  }, [recording.status])
 
   const deviceLabel = (d: MediaDeviceInfo, i: number, kind: string) => d.label || `${kind} ${i + 1}`
 
@@ -191,6 +203,7 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
     setSettings((s) => ({ ...s, ...result.choices, mic }))
     if (result.cursorSkin) patchApp({ cursorSkin: result.cursorSkin })
     await window.polish.setNextTakeLook(takeLookOf(plan))
+    setPlannedSec(plan.durationSec)
     return { notes, selection: result.selection, mic, system: result.choices.system, fps: result.choices.fps }
   }
 
@@ -455,7 +468,7 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
       {app && <div className="px-4 pb-3"><ShortcutSettings settings={app} disabled={recording.status !== 'idle'} onSaved={setApp} /></div>}
 
       {/* Plan --------------------------------------------------------------- */}
-      <PlanPanel sources={sources} hasMic={devices.mics.length > 0} hasWebcam={devices.cams.length > 0} onApply={applyRecordingPlan} onRecord={recordRecordingPlan} disabled={!idle || starting} />
+      <PlanPanel sources={sources} hasMic={devices.mics.length > 0} hasWebcam={devices.cams.length > 0} onApply={applyRecordingPlan} onRecord={recordRecordingPlan} onClear={() => { setPlannedSec(null); void window.polish.setNextTakeLook(null) }} disabled={!idle || starting} />
       {/* Start ------------------------------------------------------------- */}
       <div className="flex shrink-0 flex-col gap-2 border-t border-line p-4">
         {startError && (
@@ -468,7 +481,7 @@ export function RecordPanel({ recording, refreshKey }: { recording: RecordingSta
             void window.polish.stopRecording().catch((error) => setStartError(String(error)))
           } else void start()
         }}>
-          {idle ? 'Record' : recording.status === 'recording' ? 'Stop recording' : recording.status === 'countdown' ? 'Cancel recording' : recording.status === 'picking' ? 'Cancel selection' : 'Busy'}
+          {idle ? (plannedSec !== null ? `Record · stops at ${formatTime(plannedSec, { fraction: false })}` : 'Record') : recording.status === 'recording' ? 'Stop recording' : recording.status === 'countdown' ? 'Cancel recording' : recording.status === 'picking' ? 'Cancel selection' : 'Busy'}
         </Button>
         {isLinux && (
           <p className="border-l border-line-strong pl-2.5 text-[11px] leading-[1.45] text-fg-muted">

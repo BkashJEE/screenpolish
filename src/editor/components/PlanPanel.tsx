@@ -20,12 +20,15 @@ export function PlanPanel({
   hasMic,
   hasWebcam,
   onApply,
+  onRecord,
   disabled
 }: {
   sources: SourceInfo[] | null
   hasMic: boolean
   hasWebcam: boolean
   onApply: (plan: RecordPlan) => Promise<string[]>
+  /** Apply, then record the plan's length and stop by itself. */
+  onRecord?: (plan: RecordPlan) => Promise<string[]>
   disabled?: boolean
 }) {
   const [open, setOpen] = useState(true)
@@ -157,6 +160,22 @@ export function PlanPanel({
 
           {plan && <PlanCard plan={plan} />}
 
+          {plan && onRecord && (
+            <div className="flex flex-col gap-1.5">
+              <Button
+                variant="record"
+                disabled={asking || disabled}
+                onClick={() => void onRecord(plan).then(setApplied).catch((e: unknown) => setError(String(e)))}
+              >
+                ● Record this plan · {formatTime(plan.durationSec, { fraction: false })}
+              </Button>
+              <p className="text-[11px] leading-[1.45] text-fg-dim">
+                Read the shot list first: this window steps aside while recording. It counts in, records {formatTime(plan.durationSec, { fraction: false })} and stops by
+                itself; the title cards are added to the take.
+              </p>
+            </div>
+          )}
+
           {error && <p className="text-[11.5px] text-danger">{error}</p>}
           {applied && (
             <div className="text-[11.5px] leading-[1.45] text-fg-muted">
@@ -191,11 +210,11 @@ export function PlanPanel({
             {plan && (
               <Button
                 size="sm"
-                variant="primary"
+                variant="default"
                 disabled={asking || disabled}
                 onClick={() => void onApply(plan).then(setApplied).catch((e: unknown) => setError(String(e)))}
               >
-                Apply
+                Apply only
               </Button>
             )}
           </div>

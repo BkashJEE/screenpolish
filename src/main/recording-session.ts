@@ -32,6 +32,7 @@ import { foregroundWindowTitle } from './win/foreground-title'
 import { recordingTitle } from './recording-title'
 import { serializeProject } from './project-io'
 import { newRecordingProject } from './new-recording-project'
+import { AutoStop, autoStopMs } from './auto-stop'
 import type { PlanTakeLook } from '@shared/record-plan'
 import { bitrateFor, cropForRegion, regionForDisplay } from './region-math'
 import { displayById, findPortalSource, findScreenSource, findWindowSource, listsThroughPortal, windowRegion } from './sources'
@@ -179,6 +180,8 @@ interface Active {
   /** Handles closed; late chunks are dropped rather than reopening (and truncating) files. */
   closed: boolean
   countdownTimer: NodeJS.Timeout | null
+  /** Ends a planned take after its length; null for an ordinary one. */
+  autoStop?: AutoStop | null
   startedResolve: ((m: CaptureStartedMessage) => void) | null
   startedReject: ((e: Error) => void) | null
   finalizedWaiters: Array<() => void>
@@ -440,6 +443,18 @@ export class RecordingSession {
         this.onWarning?.(`Recording with a reduced input log: ${caps.reason}.`)
       }
       this.setState({ status: 'recording', folder, startedAt: rec.startedAt, paused: false, label: rec.label, lowDisk: rec.lowDisk ?? undefined })
+      // A planned take stops itself once it has run its length.
+      const limit = autoStopMs(request.maxDurationSec)
+      if (limit !== null) {
+        // Counted from the first recorded frame, not from here: setup after it
+        // (audio, the input log) took about 1.5 s, and a 6-second plan came
+        // out 7.5 seconds long.
+        const alreadyRecorded = rec.startedAt !== null ? Math.max(0, Date.now() - rec.startedAt) : 0
+        rec.autoStop = new AutoStop(Math.max(0, limit - alreadyRecorded), () => {
+          if (this.active === rec) void this.stop().catch((err) => console.error('[recording] planned stop failed', err))
+        })
+        rec.autoStop.run()
+      }
     } catch (err) {
       await this.abort(rec, err)
       if (err instanceof Cancelled) return
@@ -471,6 +486,8 @@ export class RecordingSession {
     const rec = this.active
     if (!rec || rec.startedAt === null || this.current.status !== 'recording') return
     rec.paused = !rec.paused
+    if (rec.paused) rec.autoStop?.pause()
+    else rec.autoStop?.run()
     rec.native?.gsr.togglePause()
     rec.systemAudio?.setPaused(rec.paused)
     if (rec.paused) this.logger.pause()
@@ -645,6 +662,8 @@ export class RecordingSession {
   }
 
   private teardown(rec: Active): void {
+    rec.autoStop?.cancel()
+    rec.autoStop = null
     if (rec.countdownTimer) clearTimeout(rec.countdownTimer)
     rec.countdownTimer = null
     try {

@@ -275,6 +275,8 @@ export interface StartRecordingRequest {
   system: boolean
   webcam: null | { deviceId: string }
   fps: 30 | 60
+  /** Stop on its own after this many seconds of recording (a planned take). */
+  maxDurationSec?: number
 }
 
 /** API exposed to the editor by src/preload/editor.ts as window.polish */

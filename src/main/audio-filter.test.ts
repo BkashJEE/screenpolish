@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { audioMixFilter, tempoFilters } from './audio-filter'
+import { MIN_AUDIO_SPAN_SEC, audioMixFilter, coalesceSpans, tempoFilters } from './audio-filter'
+import { speedSpans } from '@shared/speed'
 it('keeps each tempo stage in the supported range',()=>{
   expect(tempoFilters(0.25)).toBe('atempo=0.5,atempo=0.5')
   expect(tempoFilters(4)).toBe('atempo=2,atempo=2')
@@ -55,6 +56,52 @@ describe.skipIf(!ffmpeg)('audioMixFilter with real ffmpeg', () => {
       const probe = spawnSync(ffmpeg!, ['-hide_banner', '-i', out], { encoding: 'utf8' }).stderr
       const duration = /Duration: 00:00:(\d+\.\d+)/.exec(probe)
       expect(Number(duration?.[1])).toBeGreaterThan(14.3)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  }, 40_000)
+})
+
+describe('coalesceSpans', () => {
+  const eased = speedSpans(0, 10.76, [{ id: 'a', start: 3.23, end: 6.46, rate: 2, ease: 0.3 }]).map((sp) => ({ start: sp.outputStart, end: sp.outputEnd, rate: sp.rate }))
+
+  it('merges the tiny steps of an eased ramp into pieces an audio frame cannot miss', () => {
+    expect(eased.length).toBe(35)
+    const merged = coalesceSpans(eased)
+    expect(merged.length).toBeLessThan(10)
+    for (const sp of merged) expect(sp.end - sp.start).toBeGreaterThanOrEqual(MIN_AUDIO_SPAN_SEC - 1e-9)
+  })
+
+  it('keeps the timeline whole and the source length exact', () => {
+    const merged = coalesceSpans(eased)
+    expect(merged[0]!.start).toBe(0)
+    expect(merged.at(-1)!.end).toBeCloseTo(eased.at(-1)!.end, 9)
+    for (let i = 1; i < merged.length; i++) expect(merged[i]!.start).toBeCloseTo(merged[i - 1]!.end, 9)
+    const source = (xs: typeof eased) => xs.reduce((a, sp) => a + (sp.end - sp.start) * sp.rate, 0)
+    expect(source(merged)).toBeCloseTo(source(eased), 9)
+  })
+
+  it('leaves spans that are already long enough exactly as they were', () => {
+    const plain = [{ start: 0, end: 3, rate: 1 }, { start: 3, end: 4.5, rate: 2 }, { start: 4.5, end: 9, rate: 1 }]
+    expect(coalesceSpans(plain)).toEqual(plain)
+  })
+})
+
+describe.skipIf(!ffmpeg)('audioMixFilter with an eased ramp, real ffmpeg', () => {
+  it('finishes with the full length instead of failing on an empty piece', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'polish-ramp-'))
+    try {
+      const input = path.join(dir, 'in.mov')
+      execFileSync(ffmpeg!, ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=64x64:r=30:d=11.8', '-itsoffset', '5.757', '-f', 'lavfi', '-i', 'sine=f=440:d=3.37:r=48000', '-itsoffset', '5.257', '-f', 'lavfi', '-i', 'sine=f=660:d=6.5:r=48000', '-map', '0', '-map', '1', '-map', '2', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'pcm_s16le', '-ac', '2', input])
+      const spans = speedSpans(0, 10.76, [{ id: 'a', start: 3.23, end: 6.46, rate: 2, ease: 0.3 }]).map((sp) => ({ start: sp.outputStart, end: sp.outputEnd, rate: sp.rate }))
+      const total = spans.at(-1)!.end
+      const out = path.join(dir, 'out.mp4')
+      const run = spawnSync(ffmpeg!, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-filter_complex', audioMixFilter(2, spans, total), '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', out], { timeout: 20_000, killSignal: 'SIGKILL', encoding: 'utf8' })
+      expect(run.stderr).toBe('')
+      expect(run.status).toBe(0)
+      const probe = spawnSync(ffmpeg!, ['-hide_banner', '-i', out, '-map', '0:a', '-f', 'null', '-'], { encoding: 'utf8' }).stderr
+      const time = [...probe.matchAll(/time=00:00:(\d+\.\d+)/g)].at(-1)
+      expect(Number(time?.[1])).toBeGreaterThan(total - 0.1)
     } finally {
       fs.rmSync(dir, { recursive: true, force: true })
     }

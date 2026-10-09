@@ -9,6 +9,50 @@ export function tempoFilters(rate: number): string {
   return values.map(value => `atempo=${value}`).join(',')
 }
 
+/**
+ * Shortest stretch of audio the mix cuts out on its own. An eased speed ramp
+ * is split into steps of about 19 ms, shorter than one 1024-sample audio frame
+ * (21 ms), and a step that caught no frame came out empty: concat then failed
+ * with "Invalid data found when processing input" and the export stopped.
+ */
+export const MIN_AUDIO_SPAN_SEC = 0.12
+
+/**
+ * Merge neighbouring spans until each lasts at least `minSec`, at the rate
+ * that keeps the merged stretch the same length in the source (an output-time
+ * weighted average). A span that is long enough on its own is never changed;
+ * a short remainder at the very end joins the one before it. The video keeps
+ * the fine ramp; the audio's pitch correction moves in ~0.1 s steps, too
+ * fine to hear.
+ */
+export function coalesceSpans(spans: readonly AudioSpeedSpan[], minSec = MIN_AUDIO_SPAN_SEC): AudioSpeedSpan[] {
+  const out: AudioSpeedSpan[] = []
+  let cur: { start: number; end: number; source: number } | null = null
+  const flush = () => {
+    if (!cur) return
+    out.push({ start: cur.start, end: cur.end, rate: cur.source / (cur.end - cur.start) })
+    cur = null
+  }
+  for (const span of spans) {
+    const len = span.end - span.start
+    if (cur && cur.end - cur.start >= minSec) flush()
+    if (!cur) cur = { start: span.start, end: span.end, source: len * span.rate }
+    else {
+      cur.end = span.end
+      cur.source += len * span.rate
+    }
+  }
+  if (cur && out.length > 0 && cur.end - cur.start < minSec) {
+    const last = out.pop()!
+    const lastLen = last.end - last.start
+    const c = cur as { start: number; end: number; source: number }
+    out.push({ start: last.start, end: c.end, rate: (lastLen * last.rate + c.source) / (c.end - last.start) })
+    cur = null
+  }
+  flush()
+  return out
+}
+
 /** Undo the renderer's speed-induced pitch change, then time-stretch with FFmpeg. */
 export function audioMixFilter(count: number, spans?: AudioSpeedSpan[], durationSec?: number): string {
   if (!Number.isInteger(count) || count < 1 || count > 32) throw new Error('Unsupported audio track count')
@@ -32,6 +76,7 @@ export function audioMixFilter(count: number, spans?: AudioSpeedSpan[], duration
     tempoFilters(span.rate)
     previous=span.end
   }
+  spans = coalesceSpans(spans)
   const branches = spans.map((_,i)=>`[s${i}]`).join('')
   const pieces = spans.map((span,i)=>{
     const length=span.end-span.start

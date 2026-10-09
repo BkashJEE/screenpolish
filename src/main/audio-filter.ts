@@ -53,35 +53,91 @@ export function coalesceSpans(spans: readonly AudioSpeedSpan[], minSec = MIN_AUD
   return out
 }
 
-/** Undo the renderer's speed-induced pitch change, then time-stretch with FFmpeg. */
-export function audioMixFilter(count: number, spans?: AudioSpeedSpan[], durationSec?: number): string {
-  if (!Number.isInteger(count) || count < 1 || count > 32) throw new Error('Unsupported audio track count')
-  if (durationSec !== undefined && !(Number.isFinite(durationSec) && durationSec > 0 && durationSec <= 86400)) throw new Error('Invalid export duration')
-  const pad = Array.from({length:count},(_,i)=>`[0:a:${i}]aresample=48000:async=1:first_pts=0[a${i}];`).join('')
-  const tracks = Array.from({length:count},(_,i)=>`[a${i}]`).join('')
-  const mix = `${pad}${tracks}amix=inputs=${count}:duration=longest:normalize=0`
-  // Without a length the mix ends with its last sample, which is before an
-  // outro card ends: the audio stopped seconds short of the video.
-  // apad with no length pads forever and relies on the atrim after it to end
-  // the stream. Feeding asplit (the pitch-preserving branch below), that end
-  // never arrived: ffmpeg spun at full CPU and ignored SIGTERM, so an export
-  // of a take with a slowed section never finished. Padding to a known length
-  // ends on its own; the atrim still cuts audio that runs longer.
-  const fit = durationSec !== undefined ? `,apad=whole_dur=${durationSec},atrim=duration=${durationSec}` : ''
-  if (!spans?.length || spans.every(span=>span.rate===1)) return `${mix}${fit},alimiter=limit=0.95[a]`
+/** Whether any span changes speed, so the audio needs its pitch corrected piece by piece. */
+export function hasSpeedChange(spans?: readonly AudioSpeedSpan[]): boolean {
+  return !!spans?.some((span) => span.rate !== 1)
+}
+
+function validateSpans(spans: readonly AudioSpeedSpan[]): number {
   if (spans.length > 512) throw new Error('Too many speed boundaries for pitch-preserving export')
   let previous = 0
   for (const span of spans) {
-    if (![span.start,span.end,span.rate].every(Number.isFinite) || Math.abs(span.start-previous)>0.001 || span.end<=span.start || span.end>86400) throw new Error('Invalid audio speed timeline')
+    if (![span.start, span.end, span.rate].every(Number.isFinite) || Math.abs(span.start - previous) > 0.001 || span.end <= span.start || span.end > 86400) throw new Error('Invalid audio speed timeline')
     tempoFilters(span.rate)
-    previous=span.end
+    previous = span.end
   }
-  spans = coalesceSpans(spans)
-  const branches = spans.map((_,i)=>`[s${i}]`).join('')
-  const pieces = spans.map((span,i)=>{
-    const length=span.end-span.start
-    return `[s${i}]atrim=start=${span.start}:end=${span.end},asetpts=PTS-STARTPTS,asetrate=${48000/span.rate},aresample=48000,${tempoFilters(span.rate)},apad,atrim=duration=${length}[p${i}];`
-  }).join('')
-  const outputs=spans.map((_,i)=>`[p${i}]`).join('')
-  return `${mix},apad=whole_dur=${previous},atrim=duration=${previous},asplit=${spans.length}${branches};${pieces}${outputs}concat=n=${spans.length}:v=0:a=1,alimiter=limit=0.95[a]`
+  return previous
+}
+
+function checkCount(count: number): void {
+  if (!Number.isInteger(count) || count < 1 || count > 32) throw new Error('Unsupported audio track count')
+}
+
+function checkDuration(durationSec?: number): void {
+  if (durationSec !== undefined && !(Number.isFinite(durationSec) && durationSec > 0 && durationSec <= 86400)) throw new Error('Invalid export duration')
+}
+
+/** Every audio track mixed into one, starting at 0 and, given a length, padded and cut to it. */
+function mixChain(count: number, durationSec?: number): string {
+  const pad = Array.from({ length: count }, (_, i) => `[0:a:${i}]aresample=48000:async=1:first_pts=0[a${i}];`).join('')
+  const tracks = Array.from({ length: count }, (_, i) => `[a${i}]`).join('')
+  // Bare apad pads forever and relies on the atrim after it to end the
+  // stream, which once hung ffmpeg at full CPU; padding to a known length
+  // ends on its own, and the atrim still cuts audio that runs longer.
+  const fit = durationSec !== undefined ? `,apad=whole_dur=${durationSec},atrim=duration=${durationSec}` : ''
+  return `${pad}${tracks}amix=inputs=${count}:duration=longest:normalize=0${fit}`
+}
+
+/** The mix for an export without speed changes: one pass, straight to `[a]`. */
+export function audioMixFilter(count: number, durationSec?: number): string {
+  checkCount(count)
+  checkDuration(durationSec)
+  return `${mixChain(count, durationSec)},alimiter=limit=0.95[a]`
+}
+
+/**
+ * First pass of a mix with speed changes: every track mixed into one WAV the
+ * length of the video. The second pass reads its pieces from this file.
+ */
+export function speedMixPassOneArgs(input: string, count: number, durationSec: number, wav: string): string[] {
+  checkCount(count)
+  checkDuration(durationSec)
+  return ['-hide_banner', '-loglevel', 'error', '-y', '-i', input, '-filter_complex', `${mixChain(count, durationSec)}[a]`, '-map', '[a]', '-c:a', 'pcm_f32le', wav]
+}
+
+/**
+ * Second pass: each span read from the mixed WAV as its own input, its
+ * pitch restored and its length stretched back, then joined.
+ *
+ * It used to be one filter graph that split the mix with asplit and cut each
+ * branch with atrim before concat. On a real take that failed with "Invalid
+ * data found when processing input" whenever a speed region was eased: a
+ * branch came out empty and concat rejected it, even with two branches and
+ * nothing else in between. Reading each piece as a separate input with -ss
+ * and -t needs no asplit at all. Spans are merged first so no piece is
+ * shorter than MIN_AUDIO_SPAN_SEC.
+ */
+export function speedMixPassTwoArgs(video: string, wav: string, spans: readonly AudioSpeedSpan[], out: string): string[] {
+  validateSpans(spans)
+  const pieces = coalesceSpans(spans)
+  const inputs = pieces.flatMap((span) => ['-ss', `${span.start}`, '-t', `${span.end - span.start}`, '-i', wav])
+  const chains = pieces
+    .map((span, i) => {
+      const length = span.end - span.start
+      return `[${i + 1}:a]asetpts=PTS-STARTPTS,asetrate=${48000 / span.rate},aresample=48000,${tempoFilters(span.rate)},apad=whole_dur=${length},atrim=duration=${length}[p${i}];`
+    })
+    .join('')
+  const labels = pieces.map((_, i) => `[p${i}]`).join('')
+  return [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-i', video,
+    ...inputs,
+    '-filter_complex', `${chains}${labels}concat=n=${pieces.length}:v=0:a=1,alimiter=limit=0.95[a]`,
+    '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', out
+  ]
+}
+
+/** The length the speed spans cover, after validating them. */
+export function spansEnd(spans: readonly AudioSpeedSpan[]): number {
+  return validateSpans(spans)
 }

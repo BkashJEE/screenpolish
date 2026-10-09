@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { canSplitAt, clipsFrom, keptDuration, removeClip, restoreClip, splitAt } from '../../shared/cuts'
+import { clipSpeed, setClipSpeed, speedSpans } from '../../shared/speed'
 import { RegionLanes } from './RegionLanes'
 import type { ExportRequest, LoadedProject } from '../../shared/ipc'
 import type { MockupKind, Overlay, OverlayKind, Project, ZoomSegment } from '../../shared/types'
@@ -262,7 +263,9 @@ function LoadedEditor({ loaded, onBack }: { loaded: LoadedProject; onBack: () =>
   // Clip slicer: splits divide the trim into clips; removed clips become cuts.
   const clips = useMemo(() => clipsFrom(trim, project.splits, project.cuts), [trim, project.splits, project.cuts])
   const selectedClip = useMemo(() => clips.find((c) => c.id === selectedClipId) ?? null, [clips, selectedClipId])
-  const keptSeconds = useMemo(() => keptDuration(trim.start, trim.end, project.cuts), [trim, project.cuts])
+  // What the export will run: trims, removed clips and speed changes all count,
+  // so speeding a clip up shows its saving straight away.
+  const keptSeconds = useMemo(() => speedSpans(trim.start, trim.end, project.speedRegions, project.cuts).at(-1)?.outputEnd ?? keptDuration(trim.start, trim.end, project.cuts), [trim, project.cuts, project.speedRegions])
   const canSplit = hasDuration && canSplitAt(time, project.splits, trim)
 
   const splitAtPlayhead = useCallback(() => {
@@ -278,6 +281,12 @@ function LoadedEditor({ loaded, onBack }: { loaded: LoadedProject; onBack: () =>
     if (clips.filter((c) => !c.removed).length <= 1) return false
     onProject((p) => ({ ...p, cuts: removeClip(selectedClip, p.cuts) }))
   }, [clips, onProject, selectedClip])
+
+  // CapCut-style: split, select a piece, pick a speed for exactly that piece.
+  const setSelectedClipSpeed = useCallback((rate: number) => {
+    if (!selectedClip || selectedClip.removed) return
+    onProject((p) => ({ ...p, speedRegions: setClipSpeed(p.speedRegions, selectedClip, rate) }))
+  }, [onProject, selectedClip])
 
   const restoreSelectedClip = useCallback(() => {
     if (!selectedClip?.removed) return false
@@ -473,7 +482,7 @@ function LoadedEditor({ loaded, onBack }: { loaded: LoadedProject; onBack: () =>
             )}
           </div>
           <div className="editor-timeline shrink-0 border-t border-line bg-bg-1 px-3 pb-3">
-            <Transport time={time} duration={duration} trim={trim} playing={playing} onToggle={togglePlay} onSeek={seek} onSetIn={setIn} onSetOut={setOut} disabled={!hasDuration} keptSeconds={keptSeconds} canSplit={canSplit} onSplit={splitAtPlayhead} selectedClip={selectedClip} onRemoveClip={removeSelectedClip} onRestoreClip={restoreSelectedClip} />
+            <Transport time={time} duration={duration} trim={trim} playing={playing} onToggle={togglePlay} onSeek={seek} onSetIn={setIn} onSetOut={setOut} disabled={!hasDuration} keptSeconds={keptSeconds} canSplit={canSplit} onSplit={splitAtPlayhead} selectedClip={selectedClip} onRemoveClip={removeSelectedClip} onRestoreClip={restoreSelectedClip} clipSpeed={selectedClip ? clipSpeed(project.speedRegions, selectedClip) : null} onClipSpeed={setSelectedClipSpeed} />
             <ScrubBar
               duration={duration}
               time={time}

@@ -57,6 +57,9 @@ describe('polish://asset references', () => {
   for (const file of sourceFiles(path.join(repoRoot, 'src'))) {
     const text = fs.readFileSync(file, 'utf8')
     for (const m of text.matchAll(/polish:\/\/asset\/([A-Za-z0-9_\-./]+)/g)) refs.add(m[1])
+    // `bundled:<rel>` is the project-file spelling of the same URL (see
+    // imageUrlForPath). Tests use made-up ones, so only shipping code counts.
+    if (!/\.test\.tsx?$/.test(file)) for (const m of text.matchAll(/'bundled:([A-Za-z0-9_\-./]+)'/g)) refs.add(m[1])
   }
 
   it('finds the references it is meant to guard', () => {

@@ -5,7 +5,7 @@ import { BUNDLED_BACKGROUNDS, SOLID_PRESETS, migrateCursorStyle, backgroundCss, 
 
 describe('bundled background themes', () => {
   /** Drawn by scripts/backgrounds.py, so every build ships these. */
-  const DRAWN = ['aurora', 'violet-haze', 'dawn', 'ember', 'slate-mesh', 'spotlight', 'grid', 'daylight']
+  const DRAWN = ['neon', 'prism', 'sunburst', 'electric', 'citrus', 'holo', 'candy', 'aurora', 'violet-haze', 'dawn', 'ember', 'slate-mesh', 'spotlight', 'grid', 'daylight']
 
   it('ships the pack themes this build has, plus the drawn set and Omarchy, with export-safe URLs', () => {
     // A build without a pack (the public Omarchy edition) ships no brand themes.

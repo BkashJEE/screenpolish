@@ -159,6 +159,36 @@ def spotlight(base: str, glow: str, cx: float, cy: float, radius: float, seed: i
     return rows
 
 
+def sweep(colors, cx, cy, twist, vignette, grain, seed):
+    """Colours turning around a point, like light on foil.
+
+    `twist` bends the bands into a swirl the further they are from the centre,
+    and `vignette` darkens toward the corners so the middle holds the eye.
+    """
+    rnd = random.Random(seed)
+    stops = [hex_rgb(c) for c in colors]
+    n = len(stops)
+    rows = []
+    for y in range(HEIGHT):
+        row = bytearray()
+        fy = y / HEIGHT
+        for x in range(WIDTH):
+            fx = x / WIDTH
+            dx = (fx - cx) * (WIDTH / HEIGHT)
+            dy = fy - cy
+            d = math.sqrt(dx * dx + dy * dy)
+            t = ((math.atan2(dy, dx) / (2 * math.pi) + 0.5 + twist * d) % 1.0) * n
+            i = int(t) % n
+            f = t - int(t)
+            f = f * f * (3 - 2 * f)
+            a, b = stops[i], stops[(i + 1) % n]
+            k = 1 - vignette * min(1.0, d / 0.9) ** 2
+            g = (rnd.random() - 0.5) * grain
+            row += bytes(clamp8((a[j] + (b[j] - a[j]) * f) * k + g) for j in range(3))
+        rows.append(row)
+    return rows
+
+
 # What ships. A short shelf of distinct looks beats a long one of near-duplicates.
 BACKGROUNDS: dict[str, tuple[str, callable]] = {
     'aurora.png': (
@@ -217,6 +247,61 @@ BACKGROUNDS: dict[str, tuple[str, callable]] = {
             Blob(0.85, 0.18, 0.60, '#6b4a3a'),
             Blob(0.50, 0.50, 0.50, '#1b2436'),
         ], grain=4, seed=223)
+    ),
+    # Vivid: loud colour for posts that have to stop a scroll. Each keeps its
+    # strongest colour at the edges, since the middle sits behind the take.
+    'neon.png': (
+        'violet, magenta, orange and cyan corners on near-black',
+        lambda: mesh('#0b0614', [
+            Blob(0.08, 0.12, 0.85, '#7b2ff7'),
+            Blob(0.95, 0.08, 0.75, '#f107a3'),
+            Blob(0.92, 0.95, 0.80, '#ff6a00'),
+            Blob(0.04, 0.96, 0.70, '#00c2ff'),
+            Blob(0.50, -0.10, 0.45, '#c21cc9'),
+            Blob(0.45, 1.10, 0.45, '#ff2d55'),
+        ], grain=3, seed=301)
+    ),
+    'prism.png': (
+        'a swirl of pink, violet, blue and teal, darker in the corners',
+        lambda: sweep(['#ff0080', '#7928ca', '#0070f3', '#00dfd8', '#ff4d4d'], 0.5, 0.55, twist=0.6, vignette=0.45, grain=3, seed=337)
+    ),
+    'sunburst.png': (
+        'a warm glow behind the take, gold into coral into plum',
+        lambda: mesh('#2a0845', [
+            Blob(0.5, 0.55, 1.55, '#d6246e'),
+            Blob(0.5, 0.52, 1.15, '#ff6b3d'),
+            Blob(0.5, 0.50, 0.80, '#ffc93c'),
+        ], grain=3, seed=311)
+    ),
+    'electric.png': (
+        'a cyan and blue halo around the take, violet in two corners',
+        lambda: mesh('#050816', [
+            Blob(0.5, 0.5, 1.35, '#1e3cff'),
+            Blob(0.5, 0.5, 0.95, '#00e5ff'),
+            Blob(0.0, 0.0, 0.55, '#5b16d6'),
+            Blob(1.0, 1.0, 0.55, '#5b16d6'),
+        ], grain=3, seed=313)
+    ),
+    'citrus.png': (
+        'lime and lemon over teal',
+        lambda: mesh('#0f9b8e', [
+            Blob(0.95, 0.05, 0.85, '#38ef7d'),
+            Blob(0.08, 0.95, 0.75, '#f9f871'),
+            Blob(0.60, 0.60, 0.45, '#c6f56b'),
+        ], grain=3, seed=317)
+    ),
+    'holo.png': (
+        'pastel foil: pink, lilac, sky, mint and butter, for dark captures',
+        lambda: sweep(['#ffd1f7', '#c9b6ff', '#a8e6ff', '#b8ffd9', '#fff1b8'], 0.5, 0.5, twist=0.9, vignette=0.0, grain=3, seed=307)
+    ),
+    'candy.png': (
+        'soft pink, peach and lavender, for dark captures',
+        lambda: mesh('#ffd6e8', [
+            Blob(0.08, 0.10, 0.80, '#ff9a9e'),
+            Blob(0.92, 0.18, 0.75, '#a18cd1'),
+            Blob(0.60, 0.98, 0.75, '#fbc2eb'),
+            Blob(0.02, 0.90, 0.55, '#ffcfa8'),
+        ], grain=3, seed=331)
     ),
 }
 

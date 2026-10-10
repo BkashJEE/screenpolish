@@ -211,12 +211,21 @@ export interface BundledBackground {
 }
 
 /**
- * Pack themes first, then the Omarchy theme every build ships, then the drawn
- * set from scripts/backgrounds.py — meshes and washes a two-colour gradient
- * cannot reach, computed rather than licensed so they are safe to redistribute.
+ * Pack themes first, then the drawn set from scripts/backgrounds.py — meshes,
+ * swirls and washes a two-colour gradient cannot reach, computed rather than
+ * licensed so they are safe to redistribute — then the Omarchy theme every
+ * build ships.
  */
 export const BUNDLED_BACKGROUNDS: BundledBackground[] = [
   ...BRAND_THEMES.map((t) => ({ id: t.id, name: t.name, path: t.path })),
+  // Vivid first: loud colour around the take, for posts that have to stop a scroll.
+  { id: 'neon', name: 'Neon', path: 'bundled:backgrounds/neon.png' },
+  { id: 'prism', name: 'Prism', path: 'bundled:backgrounds/prism.png' },
+  { id: 'sunburst', name: 'Sunburst', path: 'bundled:backgrounds/sunburst.png' },
+  { id: 'electric', name: 'Electric', path: 'bundled:backgrounds/electric.png' },
+  { id: 'citrus', name: 'Citrus', path: 'bundled:backgrounds/citrus.png' },
+  { id: 'holo', name: 'Holo', path: 'bundled:backgrounds/holo.png' },
+  { id: 'candy', name: 'Candy', path: 'bundled:backgrounds/candy.png' },
   { id: 'aurora', name: 'Aurora', path: 'bundled:backgrounds/aurora.png' },
   { id: 'violet-haze', name: 'Violet Haze', path: 'bundled:backgrounds/violet-haze.png' },
   { id: 'dawn', name: 'Dawn', path: 'bundled:backgrounds/dawn.png' },

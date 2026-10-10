@@ -157,6 +157,8 @@ export const EDITOR = {
   pickAudio: 'polish:dialog:pick-audio',
   listMusic: 'polish:music:list',
   openMusicFolder: 'polish:music:open-folder',
+  listBackgrounds: 'polish:backgrounds:list',
+  openBackgroundsFolder: 'polish:backgrounds:open-folder',
   saveImage: 'polish:image:save',
   setCover: 'polish:image:set-cover',
   startRecording: 'polish:recording:start',
@@ -286,6 +288,12 @@ export interface MusicTrack {
   bytes: number
 }
 
+/** A picture from your backgrounds folder. */
+export interface FolderBackground {
+  path: string
+  name: string
+}
+
 export interface EditorBridge {
   onOpen: (handler: (folder: string) => void) => () => void
   load: (folder: string) => Promise<LoadedProject>
@@ -311,6 +319,10 @@ export interface EditorBridge {
   listMusic: () => Promise<MusicTrack[]>
   /** Open the shelf in the file manager, so tracks can be dropped in. */
   openMusicFolder: () => Promise<void>
+  /** Pictures in your backgrounds folder, ready to use as a background. */
+  listBackgrounds: () => Promise<FolderBackground[]>
+  /** Open the backgrounds folder in the file manager, creating it if needed. */
+  openBackgroundsFolder: () => Promise<void>
   saveImage: (request: SaveImageRequest) => Promise<SaveImageResponse>
   setCover: (request: SetCoverRequest) => Promise<SaveImageResponse>
   startRecording: (request: StartRecordingRequest) => Promise<void>

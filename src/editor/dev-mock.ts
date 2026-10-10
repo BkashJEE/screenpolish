@@ -136,6 +136,8 @@ export async function installMockBridge(): Promise<void> {
     pickAudio: async () => null,
     listMusic: async () => [],
     openMusicFolder: async () => console.info('[mock] openMusicFolder'),
+    listBackgrounds: async () => [],
+    openBackgroundsFolder: async () => console.info('[mock] openBackgroundsFolder'),
     saveImage: async (req) => {
       console.info('[mock] saveImage', req.name, req.format, req.data.byteLength, 'bytes')
       return { path: `${req.folder}\\exports\\${req.name}.${req.format}` }

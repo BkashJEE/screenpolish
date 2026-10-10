@@ -1,6 +1,6 @@
 import { memo, useEffect, useState, type ReactNode } from 'react'
 import { AGENT_POINTER_COLOR } from '../../render/render-frame'
-import type { MusicTrack } from '../../shared/ipc'
+import type { FolderBackground, MusicTrack } from '../../shared/ipc'
 import { BUNDLED_MUSIC } from '../../shared/bundled-music'
 import { CLICK_SOUND_STYLES, DEFAULT_CLICK_SOUND, type ClickSoundStyle } from '../../shared/click-sound'
 import { playClick, playZoomSound } from '../lib/click-player'
@@ -59,6 +59,65 @@ const THEME_LETTERING: Record<string, string> = {
 
 const pct = (v: number) => `${Math.round(v * 100)}%`
 const signed = (v: number) => (v === 0 ? '0' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`)
+
+/**
+ * Pictures from your own backgrounds folder (Pictures/ScreenPolish), shown
+ * next to the ones that ship. Read again whenever the editor regains focus,
+ * since the folder is filled from a file manager.
+ */
+function FolderBackgrounds({ selected, onPick }: { selected: string | undefined; onPick: (path: string) => void }) {
+  const [images, setImages] = useState<FolderBackground[] | null>(null)
+
+  useEffect(() => {
+    const refresh = (): void => {
+      void window.polish
+        .listBackgrounds()
+        .then(setImages)
+        .catch(() => setImages([]))
+    }
+    refresh()
+    window.addEventListener('focus', refresh)
+    return () => window.removeEventListener('focus', refresh)
+  }, [])
+
+  const openFolder = (): void => {
+    void window.polish.openBackgroundsFolder().catch((error) => window.alert(`Could not open the backgrounds folder: ${String(error)}`))
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <span className="text-[10.5px] uppercase tracking-wide text-fg-dim">Your folder</span>
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={openFolder}>
+          Open folder
+        </Button>
+      </div>
+      {images && images.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Your backgrounds">
+          {images.map((b) => (
+            <button
+              key={b.path}
+              type="button"
+              aria-label={`Choose ${b.name} background`}
+              aria-pressed={selected === b.path}
+              title={b.path}
+              onClick={() => onPick(b.path)}
+              className={cx(
+                'overflow-hidden rounded-[6px] border text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-fg',
+                selected === b.path ? 'border-fg ring-1 ring-fg' : 'border-line-strong'
+              )}
+            >
+              <span className="block aspect-video" style={{ backgroundImage: `url(${imageUrlForPath(b.path)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+              <span className="block truncate px-2 py-1.5 text-[11px] text-fg-dim">{b.name}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        images && <p className="text-[11.5px] leading-[1.45] text-fg-dim">Put pictures in Pictures/ScreenPolish and they appear here.</p>
+      )}
+    </div>
+  )
+}
 
 /**
  * The music shelf: whatever is in the music folder, one click from the take.
@@ -331,6 +390,7 @@ export const Knobs = memo(function Knobs(props: KnobsProps) {
             </button>
           ))}
         </div>
+        <FolderBackgrounds selected={bg.kind === 'image' ? bg.imagePath : undefined} onPick={(imagePath) => set('background', { kind: 'image', imagePath, lettering: false })} />
         {themeLettering && (
           <Row label={themeLettering.label} hint="Drawn in the space around the recording, so it hides if the recording fills the frame.">
             <Toggle checked={bg.lettering === true} onChange={(lettering) => set('background', { lettering })} label={themeLettering.label} />

@@ -20,6 +20,7 @@ import { assertInsideRoot, type ExportSink } from './export-sink'
 import { copyFileToClipboard } from './clipboard-file'
 import { allowImage, mediaUrl } from './media-protocol'
 import { ensureShelf, listTracks } from './music-library'
+import { ensureBackgroundsFolder, listBackgrounds } from './background-library'
 import { isRecordingFolderName, parseFolderName, sanitizeBaseName, uniqueName } from './naming'
 import { mergeProject, serializeProject } from './project-io'
 import { saveRecordDefaults } from './record-defaults'
@@ -40,6 +41,7 @@ export interface EditorIpcDeps {
   root: () => string
   /** Where the music shelf lives; a folder the user can drop tracks into. */
   musicRoot: () => string
+  backgroundsRoot: () => string
   getEditorWindow: () => BrowserWindow | null
 
   durationOf: (file: string) => Promise<number | null>
@@ -309,6 +311,19 @@ export function registerEditorIpc(deps: EditorIpcDeps): void {
 
   ipcMain.handle(EDITOR.openMusicFolder, async () => {
     const failure = await shell.openPath(ensureShelf(deps.musicRoot()))
+    if (failure) throw new Error(failure)
+  })
+
+  // Listing the folder does not create it: only opening it does, so the app
+  // never leaves an empty folder in Pictures for someone who never asked.
+  ipcMain.handle(EDITOR.listBackgrounds, () => {
+    const images = listBackgrounds(deps.backgroundsRoot())
+    for (const image of images) allowImage(image.path)
+    return images
+  })
+
+  ipcMain.handle(EDITOR.openBackgroundsFolder, async () => {
+    const failure = await shell.openPath(ensureBackgroundsFolder(deps.backgroundsRoot()))
     if (failure) throw new Error(failure)
   })
 
